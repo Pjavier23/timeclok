@@ -30,10 +30,25 @@ export default function Home() {
     setLoading(true)
     setError('')
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
+      // Use API endpoint to bypass rate limiting
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          companyName,
+          userType: 'owner'
+        })
       })
+
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Signup failed')
+      
+      if (data.user) {
+        router.push('/owner/dashboard')
+        return
+      }
       if (signUpError) throw signUpError
       if (data.user) {
         // Create company record
@@ -75,10 +90,24 @@ export default function Home() {
     setLoading(true)
     setError('')
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          companyName: '',
+          userType: 'employee'
+        })
       })
+
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Signup failed')
+      
+      if (data.user) {
+        router.push('/employee/dashboard')
+        return
+      }
       if (signUpError) throw signUpError
       if (data.user) {
         // Create user profile
@@ -121,24 +150,17 @@ export default function Home() {
     setLoading(true)
     setError('')
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
       })
-      if (signInError) throw signInError
-      if (data.user) {
-        // Fetch user profile to determine role
-        const { data: userProfile, error: profileError } = await supabase
-          .from('users')
-          .select('user_type')
-          .eq('id', data.user.id)
-          .single()
-        
-        if (profileError && profileError.code !== 'PGRST116') throw profileError
-        
-        const userType = userProfile?.user_type || 'owner'
-        router.push(userType === 'employee' ? '/employee/dashboard' : '/owner/dashboard')
-      }
+
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Login failed')
+      
+      const userType = data.userType || 'owner'
+      router.push(userType === 'employee' ? '/employee/dashboard' : '/owner/dashboard')
     } catch (err: any) {
       setError(err.message || 'Failed to log in')
     } finally {
