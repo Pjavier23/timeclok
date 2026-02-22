@@ -27,6 +27,33 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     const initDashboard = async () => {
       try {
+        // Check for demo mode
+        const isDemo = localStorage.getItem('demo_mode') === 'true'
+        if (isDemo) {
+          setUser({ id: 'demo-emp', email: localStorage.getItem('user_email') || 'john@timeclok.test' })
+          setEmployee({ hourly_rate: 25, employee_type: 'contractor' })
+          setTimeEntries([
+            {
+              id: '1',
+              clock_in: new Date(Date.now() - 8 * 3600000).toISOString(),
+              clock_out: new Date(Date.now() - 4 * 3600000).toISOString(),
+              hours_worked: 4,
+              latitude: 38.9072,
+              longitude: -77.0369
+            },
+            {
+              id: '2',
+              clock_in: new Date(Date.now() - 24 * 3600000).toISOString(),
+              clock_out: new Date(Date.now() - 16 * 3600000).toISOString(),
+              hours_worked: 8,
+              latitude: 38.9072,
+              longitude: -77.0369
+            }
+          ])
+          setLoading(false)
+          return
+        }
+
         // Check auth
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
