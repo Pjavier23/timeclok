@@ -44,7 +44,7 @@ export default function Home() {
       if (!response.ok) throw new Error(data.error || 'Signup failed')
       
       if (data.magicLink) {
-        alert(`✅ Magic link generated!\n\nLink: ${data.magicLink}\n\nCopy and open in your browser!`)
+        // Auto-redirect to magic link
         window.location.href = data.magicLink
       }
     } catch (err: any) {
@@ -75,7 +75,7 @@ export default function Home() {
       if (!response.ok) throw new Error(data.error || 'Signup failed')
       
       if (data.magicLink) {
-        alert(`✅ Magic link generated!\n\nLink: ${data.magicLink}\n\nCopy and open in your browser!`)
+        // Auto-redirect to magic link
         window.location.href = data.magicLink
       }
     } catch (err: any) {

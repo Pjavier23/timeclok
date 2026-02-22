@@ -7,23 +7,25 @@ export default function DemoLogin() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
+  const email = searchParams.get('email')
+  const userType = searchParams.get('userType') || 'owner'
+  const company = searchParams.get('company')
+  
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!token) {
-      setError('Invalid or missing token')
+    if (!token || !email) {
+      setError('Invalid or missing login credentials')
       setLoading(false)
       return
     }
 
-    // Simulate validation (in production, verify token in backend)
-    // Store token in localStorage for demo
-    localStorage.setItem('demo_token', token)
-    
-    // Determine if owner or employee based on URL param
-    const userType = searchParams.get('type') || 'owner'
-    localStorage.setItem('userType', userType)
+    // Store demo session in localStorage
+    localStorage.setItem('demo_logged_in', 'true')
+    localStorage.setItem('demo_email', email)
+    localStorage.setItem('demo_userType', userType)
+    localStorage.setItem('demo_company', company || email.split('@')[0])
 
     // Redirect to appropriate dashboard
     const timeout = setTimeout(() => {
@@ -35,7 +37,7 @@ export default function DemoLogin() {
     }, 1000)
 
     return () => clearTimeout(timeout)
-  }, [token, searchParams, router])
+  }, [token, email, userType, company, router])
 
   if (loading) {
     return (
