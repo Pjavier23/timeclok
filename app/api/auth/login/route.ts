@@ -8,10 +8,10 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Missing email or password' }, { status: 400 })
     }
 
-    const supabase = createClient(
-      'https://tkljofxcndnwqyqrtrnx.supabase.co',
-      'sb_publishable_DStZYSJI03dZY_k-all'
-    )
+    const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tkljofxcndnwqyqrtrnx.supabase.co').trim()
+    const anonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
+    
+    const supabase = createClient(supabaseUrl, anonKey)
 
     // Sign in with password
     const { data, error: signInError } = await supabase.auth.signInWithPassword({
