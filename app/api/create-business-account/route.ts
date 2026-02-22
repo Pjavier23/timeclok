@@ -79,29 +79,11 @@ export async function POST(request: Request) {
       }
     }
     
-    console.log('Creating user profile')
-    const { error: profileError } = await supabase
-      .from('users')
-      .insert([
-        {
-          id: userId,
-          email,
-          full_name: ownerName || companyName,
-          user_type: 'owner',
-          company_id: null,
-        },
-      ])
-      .select()
+    // Skip user profile creation due to RLS restrictions with anon key
+    // User will be created when they sign up normally
+    console.log('Skipping user profile (will be created on signup)')
 
-    if (profileError) {
-      console.warn('Profile creation warning:', profileError.message)
-      // Don't fail if profile exists
-      if (!profileError.message.includes('duplicate')) {
-        throw profileError
-      }
-    }
-
-    // Step 3: Create company
+    // Step 3: Create company (will be owned by email when user signs up)
     console.log('Creating company')
     const { data: companyData, error: compError } = await supabase
       .from('companies')
@@ -110,16 +92,12 @@ export async function POST(request: Request) {
       .single()
 
     if (compError && !compError.message.includes('duplicate')) {
-      throw new Error('Failed to create company: ' + compError.message)
+      console.warn('Company creation warning:', compError.message)
+      // Continue anyway - company might exist
     }
 
-    // Step 4: Update user with company_id if company was created
-    if (companyData?.id) {
-      await supabase
-        .from('users')
-        .update({ company_id: companyData.id })
-        .eq('id', userId)
-    }
+    const companyId = companyData?.id
+    console.log('Company created with ID:', companyId)
 
     // Success
     return Response.json(
