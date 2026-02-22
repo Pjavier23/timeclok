@@ -11,6 +11,13 @@ export async function POST(request: Request) {
     const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tkljofxcndnwqyqrtrnx.supabase.co').trim()
     const anonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
     
+    console.log('Login - URL:', supabaseUrl)
+    console.log('Login - Anon Key:', anonKey ? `${anonKey.substring(0, 20)}... (${anonKey.length} chars)` : 'EMPTY')
+    
+    if (!anonKey) {
+      return Response.json({ error: 'Supabase configuration missing' }, { status: 500 })
+    }
+    
     const supabase = createClient(supabaseUrl, anonKey)
 
     // Sign in with password
@@ -19,7 +26,10 @@ export async function POST(request: Request) {
       password,
     })
 
-    if (signInError) throw signInError
+    if (signInError) {
+      console.error('SignIn error:', signInError)
+      throw signInError
+    }
     if (!data.user) throw new Error('Login failed')
 
     // Get user profile to determine role
