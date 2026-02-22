@@ -30,21 +30,21 @@ export async function POST(request: Request) {
       )
     }
 
-    // Step 1: Create user via Supabase Admin SDK (uses service role key)
-    console.log('Creating auth user via Supabase Admin SDK:', email)
+    // Step 1: Try standard signup first to test connectivity
+    console.log('Attempting user creation:', email)
     
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    const supabaseStandard = createClient(supabaseUrl, supabaseAnonKey)
     
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    const { data: authData, error: authError } = await supabaseStandard.auth.signUp({
       email,
       password,
-      email_confirm: true, // Auto-confirm email
     })
 
     if (authError) {
-      console.error('Admin auth error:', authError)
+      console.error('Auth error:', authError)
       return Response.json(
-        { error: authError.message || 'Failed to create user' },
+        { error: authError.message || 'Failed to create user', details: authError },
         { status: 400 }
       )
     }
@@ -59,8 +59,8 @@ export async function POST(request: Request) {
     const userId = authData.user.id
     console.log('Auth user created:', userId)
 
-    // Step 2: Create user profile using Supabase client with service role key
-    const supabase = createClient(supabaseUrl, serviceRoleKey)
+    // Step 2: Create user profile
+    const supabase = supabaseStandard
     
     console.log('Creating user profile')
     const { error: profileError } = await supabase
