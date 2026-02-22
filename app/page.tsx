@@ -1,34 +1,69 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function Home() {
   const router = useRouter()
+  const [lang, setLang] = useState<'en' | 'es'>('en')
 
   return (
     <div style={{
-      background: '#0a0a0a',
+      background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%)',
       minHeight: '100vh',
       color: '#fff',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
       padding: '2rem',
+      fontFamily: 'system-ui, -apple-system, sans-serif'
     }}>
-      <h1 style={{ fontSize: '4rem', marginBottom: '2rem' }}>⏱️ TimeClok</h1>
-      <p style={{ fontSize: '1.25rem', marginBottom: '3rem', textAlign: 'center', maxWidth: '600px' }}>
-        Employee time tracking & payroll management
-      </p>
+      <div style={{
+        position: 'absolute',
+        top: '2rem',
+        right: '2rem',
+        display: 'flex',
+        gap: '0.5rem'
+      }}>
+        <button onClick={() => setLang('en')} style={{
+          padding: '0.5rem 1rem',
+          background: lang === 'en' ? '#00d9ff' : 'rgba(255,255,255,0.1)',
+          color: lang === 'en' ? '#000' : '#fff',
+          border: 'none',
+          borderRadius: '0.5rem',
+          cursor: 'pointer',
+          fontWeight: '600'
+        }}>English</button>
+        <button onClick={() => setLang('es')} style={{
+          padding: '0.5rem 1rem',
+          background: lang === 'es' ? '#ff006e' : 'rgba(255,255,255,0.1)',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '0.5rem',
+          cursor: 'pointer',
+          fontWeight: '600'
+        }}>Español</button>
+      </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '3rem' }}>
-        <button
-          onClick={() => {
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        textAlign: 'center'
+      }}>
+        <h1 style={{fontSize: '4rem', fontWeight: '900', marginBottom: '1rem'}}>
+          ⏱️ TimeClok
+        </h1>
+        <p style={{fontSize: '1.25rem', color: '#aaa', marginBottom: '3rem', maxWidth: '600px'}}>
+          {lang === 'en' 
+            ? 'Employee time tracking & payroll management. Simple, transparent, secure.'
+            : 'Seguimiento de tiempo y nómina para equipos modernos.'}
+        </p>
+
+        <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '3rem'}}>
+          <button onClick={() => {
             localStorage.setItem('demo_mode', 'true')
-            localStorage.setItem('user_type', 'owner')
             router.push('/owner/dashboard')
-          }}
-          style={{
+          }} style={{
             background: '#00d9ff',
             color: '#000',
             border: 'none',
@@ -37,18 +72,15 @@ export default function Home() {
             fontSize: '1.25rem',
             fontWeight: 'bold',
             cursor: 'pointer',
-          }}
-        >
-          👔 Owner Demo
-        </button>
+            transition: 'transform 0.2s'
+          }} onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>
+            👔 {lang === 'en' ? 'Owner Demo' : 'Demo Propietario'}
+          </button>
 
-        <button
-          onClick={() => {
+          <button onClick={() => {
             localStorage.setItem('demo_mode', 'true')
-            localStorage.setItem('user_type', 'employee')
             router.push('/employee/dashboard')
-          }}
-          style={{
+          }} style={{
             background: '#ff006e',
             color: '#fff',
             border: 'none',
@@ -57,13 +89,43 @@ export default function Home() {
             fontSize: '1.25rem',
             fontWeight: 'bold',
             cursor: 'pointer',
-          }}
-        >
-          👤 Employee Demo
-        </button>
-      </div>
+            transition: 'transform 0.2s'
+          }} onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>
+            👤 {lang === 'en' ? 'Employee Demo' : 'Demo Empleado'}
+          </button>
+        </div>
 
-      <p style={{ color: '#666' }}>Click either button to see the demo</p>
+        <div style={{marginTop: '3rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', maxWidth: '600px'}}>
+          <button onClick={() => router.push('/auth/signup')} style={{
+            background: 'transparent',
+            color: '#00d9ff',
+            border: '2px solid #00d9ff',
+            padding: '1rem',
+            borderRadius: '0.5rem',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }}>
+            {lang === 'en' ? 'Sign Up' : 'Registrarse'}
+          </button>
+          <button onClick={() => router.push('/auth/login')} style={{
+            background: 'transparent',
+            color: '#ff006e',
+            border: '2px solid #ff006e',
+            padding: '1rem',
+            borderRadius: '0.5rem',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }}>
+            {lang === 'en' ? 'Log In' : 'Iniciar Sesión'}
+          </button>
+        </div>
+
+        <p style={{color: '#666', marginTop: '2rem', fontSize: '0.875rem'}}>
+          {lang === 'en' 
+            ? 'Demo accounts work instantly. Full app requires sign up.'
+            : 'Las cuentas de demostración funcionan al instante.'}
+        </p>
+      </div>
     </div>
   )
 }
