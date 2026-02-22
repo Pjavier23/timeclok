@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tkljofxcndnwqyqrtrnx.supabase.co'
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
 // Pre-shared admin token
@@ -24,29 +23,40 @@ export async function POST(request: Request) {
       )
     }
 
-    // Use service role key for admin account creation (bypasses rate limits)
-    const supabase = createClient(supabaseUrl, serviceRoleKey || anonKey)
+    if (!serviceRoleKey) {
+      throw new Error('Service role key not configured')
+    }
 
-    // Step 1: Sign up user via service role (bypasses email rate limiting)
-    console.log('Creating auth user:', email)
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true, // Auto-confirm email for fast onboarding
+    // Step 1: Create user via Supabase Admin API (bypasses email rate limiting)
+    console.log('Creating auth user via Admin API:', email)
+    const adminApiUrl = `${supabaseUrl}/auth/v1/admin/users`
+    
+    const createUserResponse = await fetch(adminApiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        email_confirm: true, // Auto-confirm email
+      }),
     })
 
-    if (authError) {
-      throw new Error(authError.message || 'Signup failed')
+    if (!createUserResponse.ok) {
+      const error = await createUserResponse.json()
+      console.error('Admin API error:', error)
+      throw new Error(error.message || 'Failed to create user')
     }
 
-    if (!authData.user) {
-      throw new Error('Account creation failed')
-    }
-
-    const userId = authData.user.id
+    const authData = await createUserResponse.json()
+    const userId = authData.id
     console.log('Auth user created:', userId)
 
-    // Step 2: Create user profile with service role key (RLS bypass for profile creation)
+    // Step 2: Create user profile using Supabase client with service role key
+    const supabase = createClient(supabaseUrl, serviceRoleKey)
+    
     console.log('Creating user profile')
     const { error: profileError } = await supabase
       .from('users')
