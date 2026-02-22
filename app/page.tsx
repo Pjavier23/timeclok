@@ -209,7 +209,34 @@ export default function Home() {
               </div>
 
               <p style={{ color: '#999', marginBottom: '1rem' }}>
-                {lang === 'en' ? 'Already have an account?' : '¿Ya tienes una cuenta?'}
+                {lang === 'en' ? 'Try our demo first!' : '¡Prueba nuestra demostración primero!'}
+              </p>
+              <button
+                onClick={() => {
+                  // Demo login
+                  localStorage.setItem('demo_logged_in', 'true')
+                  localStorage.setItem('demo_email', 'demo@timeclok.test')
+                  localStorage.setItem('demo_userType', 'owner')
+                  localStorage.setItem('demo_company', 'Demo Company')
+                  router.push('/owner/dashboard')
+                }}
+                style={{
+                  background: '#1dd1dd',
+                  color: '#000',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '0.5rem',
+                  border: 'none',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  marginBottom: '1.5rem',
+                  width: '100%'
+                }}
+              >
+                {lang === 'en' ? '🎯 Try Demo (Owner)' : '🎯 Probar Demo (Propietario)'}
+              </button>
+
+              <p style={{ color: '#999', marginBottom: '1rem' }}>
+                {lang === 'en' ? 'Or create a new account:' : 'O crear una nueva cuenta:'}
               </p>
               <button
                 onClick={() => setScreen('login')}
