@@ -1,13 +1,14 @@
 export async function POST(request: Request) {
   try {
-    const serviceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrbGpvZnhjbmRud3l5cXJ0cm54Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTc2NzMxNSwiZXhwIjoyMDg3MzQzMzE1fQ.I07_YtatFR6sZfDRmjtwLTaMb83w-tRRAKMknoFXQFg'
+    const anonKey = 'sb_publishable_DStZYSJI03dZY_k-all'
+    const supabaseUrl = 'https://tkljofxcndnwqyqrtrnx.supabase.co'
 
     // Step 1: Insert employee
-    const empResponse = await fetch('https://tkljofxcndnwqyqrtrnx.supabase.co/rest/v1/employees', {
+    const empResponse = await fetch(`${supabaseUrl}/rest/v1/employees`, {
       method: 'POST',
       headers: {
-        'apikey': serviceKey,
-        'Authorization': `Bearer ${serviceKey}`,
+        'apikey': anonKey,
+        'Authorization': `Bearer ${anonKey}`,
         'Content-Type': 'application/json',
         'Prefer': 'return=representation',
       },
@@ -34,11 +35,11 @@ export async function POST(request: Request) {
     const clockOut = new Date(clockIn)
     clockOut.setHours(clockOut.getHours() + 8)
 
-    const timeResponse = await fetch('https://tkljofxcndnwqyqrtrnx.supabase.co/rest/v1/time_entries', {
+    const timeResponse = await fetch(`${supabaseUrl}/rest/v1/time_entries`, {
       method: 'POST',
       headers: {
-        'apikey': serviceKey,
-        'Authorization': `Bearer ${serviceKey}`,
+        'apikey': anonKey,
+        'Authorization': `Bearer ${anonKey}`,
         'Content-Type': 'application/json',
         'Prefer': 'return=representation',
       },
@@ -66,11 +67,11 @@ export async function POST(request: Request) {
     weekEnd.setDate(weekEnd.getDate() - 7)
     const weekEndStr = weekEnd.toISOString().split('T')[0]
 
-    const payResponse = await fetch('https://tkljofxcndnwqyqrtrnx.supabase.co/rest/v1/payroll', {
+    const payResponse = await fetch(`${supabaseUrl}/rest/v1/payroll`, {
       method: 'POST',
       headers: {
-        'apikey': serviceKey,
-        'Authorization': `Bearer ${serviceKey}`,
+        'apikey': anonKey,
+        'Authorization': `Bearer ${anonKey}`,
         'Content-Type': 'application/json',
         'Prefer': 'return=representation',
       },
