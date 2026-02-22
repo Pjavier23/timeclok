@@ -23,12 +23,12 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!serviceRoleKey) {
-      return Response.json(
-        { error: 'Service role key not configured in environment', debug: { hasKey: !!serviceRoleKey } },
-        { status: 500 }
-      )
-    }
+    // Log environment for debugging
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    console.log('Environment check:')
+    console.log('- URL:', supabaseUrl)
+    console.log('- Anon Key:', anonKey ? `[${anonKey.length} chars]` : 'MISSING')
+    console.log('- Service Key:', serviceRoleKey ? `[${serviceRoleKey.length} chars]` : 'MISSING')
 
     // Step 1: Try standard signup first to test connectivity
     console.log('Attempting user creation:', email)
@@ -44,7 +44,16 @@ export async function POST(request: Request) {
     if (authError) {
       console.error('Auth error:', authError)
       return Response.json(
-        { error: authError.message || 'Failed to create user', details: authError },
+        { 
+          error: authError.message || 'Failed to create user',
+          debug: {
+            supabaseUrl,
+            anonKeyExists: !!anonKey,
+            anonKeyLength: anonKey.length,
+            authErrorMessage: authError.message,
+            authErrorStatus: authError.status
+          }
+        },
         { status: 400 }
       )
     }
