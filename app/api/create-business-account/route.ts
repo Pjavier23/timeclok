@@ -30,6 +30,8 @@ export async function POST(request: Request) {
     // Step 1: Create user via Supabase Admin API (bypasses email rate limiting)
     console.log('Creating auth user via Admin API:', email)
     const adminApiUrl = `${supabaseUrl}/auth/v1/admin/users`
+    console.log('Admin URL:', adminApiUrl)
+    console.log('Service key (first 20 chars):', serviceRoleKey.substring(0, 20))
     
     const createUserResponse = await fetch(adminApiUrl, {
       method: 'POST',
@@ -44,13 +46,28 @@ export async function POST(request: Request) {
       }),
     })
 
+    const responseText = await createUserResponse.text()
+    console.log('Admin API response status:', createUserResponse.status)
+    console.log('Admin API response:', responseText)
+
     if (!createUserResponse.ok) {
-      const error = await createUserResponse.json()
+      let error
+      try {
+        error = JSON.parse(responseText)
+      } catch {
+        error = { message: responseText }
+      }
       console.error('Admin API error:', error)
       throw new Error(error.message || 'Failed to create user')
     }
 
-    const authData = await createUserResponse.json()
+    let authData
+    try {
+      authData = JSON.parse(responseText)
+    } catch {
+      throw new Error('Invalid JSON response: ' + responseText)
+    }
+
     const userId = authData.id
     console.log('Auth user created:', userId)
 
