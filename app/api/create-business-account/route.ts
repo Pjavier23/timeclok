@@ -39,43 +39,44 @@ export async function POST(request: Request) {
     const supabaseAdmin = isAdmin ? createClient(supabaseUrl, serviceRoleKey) : null
     const supabase = createClient(supabaseUrl, supabaseAnonKey) // Always use anon key for database
 
-    // Step 1: Try to create auth user
+    // Step 1: Create auth user via standard signup (works even on anon key)
+    console.log('Creating auth user via signup')
     let userId: string | null = null
+    let authCreated = false
     
-    if (isAdmin && supabaseAdmin) {
-      // Admin path: use admin.createUser
-      console.log('Creating auth user via admin API')
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-      })
-      
-      if (!authError && authData.user) {
-        userId = authData.user.id
-        console.log('Auth user created:', userId)
-      } else {
-        console.warn('Admin user creation failed:', authError?.message)
-        // Fallback: generate UUID for user profile
-        userId = generateUUID()
-        console.log('Using generated UUID:', userId)
-      }
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+    })
+    
+    if (!authError && authData.user) {
+      userId = authData.user.id
+      authCreated = true
+      console.log('Auth user created:', userId)
     } else {
-      // Standard path: use signUp
-      console.log('Creating auth user via standard signup')
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-      })
+      console.warn('Signup failed, trying admin API')
       
-      if (!authError && authData.user) {
-        userId = authData.user.id
-        console.log('Auth user created:', userId)
-      } else {
-        console.warn('Standard signup failed:', authError?.message)
-        // Fallback: generate UUID for user profile
+      // Try admin path if standard path fails
+      if (isAdmin && supabaseAdmin) {
+        const { data: adminAuthData, error: adminAuthError } = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+        })
+        
+        if (!adminAuthError && adminAuthData.user) {
+          userId = adminAuthData.user.id
+          authCreated = true
+          console.log('Auth user created via admin:', userId)
+        } else {
+          console.warn('Admin creation also failed')
+        }
+      }
+      
+      // Final fallback: use UUID
+      if (!userId) {
         userId = generateUUID()
-        console.log('Using generated UUID:', userId)
+        console.log('Using fallback UUID:', userId)
       }
     }
     
