@@ -22,7 +22,6 @@ export async function POST(request: Request) {
         created_at: new Date(),
         updated_at: new Date(),
       }])
-      .on('*', (payload) => console.log(payload))
 
     // Create company
     await supabase
