@@ -23,20 +23,18 @@ export default function Home() {
   const t = (key: keyof typeof translations.en) => getTranslation(lang, key)
 
   const handleOwnerSignup = async () => {
-    if (!email || !password || !companyName) {
-      setError('Please fill in all fields')
+    if (!email || !companyName) {
+      setError('Please fill in email and company name')
       return
     }
     setLoading(true)
     setError('')
     try {
-      // Use API endpoint to bypass rate limiting
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
-          password,
           companyName,
           userType: 'owner'
         })
@@ -45,19 +43,20 @@ export default function Home() {
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Signup failed')
       
-      if (data.user) {
-        router.push('/owner/dashboard')
+      if (data.magicLink) {
+        alert(`✅ Magic link generated!\n\nLink: ${data.magicLink}\n\nCopy and open in your browser!`)
+        window.location.href = data.magicLink
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to sign up')
+      setError(err.message || 'Failed to create link')
     } finally {
       setLoading(false)
     }
   }
 
   const handleEmployeeSignup = async () => {
-    if (!email || !password) {
-      setError('Please fill in all fields')
+    if (!email) {
+      setError('Please enter your email')
       return
     }
     setLoading(true)
@@ -68,8 +67,6 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
-          password,
-          companyName: '',
           userType: 'employee'
         })
       })
@@ -77,11 +74,12 @@ export default function Home() {
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Signup failed')
       
-      if (data.user) {
-        router.push('/employee/dashboard')
+      if (data.magicLink) {
+        alert(`✅ Magic link generated!\n\nLink: ${data.magicLink}\n\nCopy and open in your browser!`)
+        window.location.href = data.magicLink
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to sign up')
+      setError(err.message || 'Failed to create link')
     } finally {
       setLoading(false)
     }
@@ -263,19 +261,6 @@ export default function Home() {
                     color: '#fff',
                   }}
                 />
-                <input
-                  type="password"
-                  placeholder={t('password')}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  style={{
-                    padding: '0.75rem 1rem',
-                    borderRadius: '0.5rem',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    color: '#fff',
-                  }}
-                />
               </div>
               {error && <div style={{ color: '#ff006e', marginBottom: '1rem', fontSize: '0.875rem' }}>{error}</div>}
               <button
@@ -294,7 +279,7 @@ export default function Home() {
                   opacity: loading ? 0.6 : 1,
                 }}
               >
-                {loading ? 'Creating...' : t('signup')}
+                {loading ? 'Generating Link...' : 'Get Magic Link'}
               </button>
               <button
                 onClick={() => { setUserType(null); setScreen('landing'); setError('') }}
@@ -403,19 +388,6 @@ export default function Home() {
                     color: '#fff',
                   }}
                 />
-                <input
-                  type="password"
-                  placeholder={t('password')}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  style={{
-                    padding: '0.75rem 1rem',
-                    borderRadius: '0.5rem',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    color: '#fff',
-                  }}
-                />
               </div>
               {error && <div style={{ color: '#ff006e', marginBottom: '1rem', fontSize: '0.875rem' }}>{error}</div>}
               <button
@@ -434,7 +406,7 @@ export default function Home() {
                   opacity: loading ? 0.6 : 1,
                 }}
               >
-                {loading ? 'Creating...' : t('signup')}
+                {loading ? 'Generating Link...' : 'Get Magic Link'}
               </button>
               <button
                 onClick={() => { setUserType(null); setScreen('landing'); setError('') }}
