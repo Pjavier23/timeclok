@@ -45,6 +45,21 @@ export async function POST(request: Request) {
 
     if (!authData.user) throw new Error('Signup failed')
 
+    // Auto-create user profile
+    const profileRes = await fetch(`${request.headers.get('origin') || 'https://timeclok.vercel.app'}/api/auth/create-profile`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: authData.user.id,
+        email: authData.user.email,
+        fullName: authData.user.user_metadata?.full_name || '',
+        userType: 'owner',
+        companyId: null,
+      }),
+    })
+    
+    console.log('Profile creation response:', profileRes.status)
+
     // Create company if name provided
     let companyId: string | null = null
     if (companyName) {
@@ -55,6 +70,14 @@ export async function POST(request: Request) {
         .single()
       
       companyId = companyData?.id || null
+      
+      // Update user with company_id
+      if (companyId) {
+        await supabase
+          .from('users')
+          .update({ company_id: companyId })
+          .eq('id', authData.user.id)
+      }
     }
 
     return Response.json({

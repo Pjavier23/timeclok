@@ -85,9 +85,34 @@ export async function POST(request: Request) {
       console.log('Using fallback UUID:', userId)
     }
     
-    // Skip user profile creation due to RLS restrictions with anon key
-    // User will be created when they sign up normally
-    console.log('Skipping user profile (will be created on signup)')
+    // Step 2: Create user profile using service role key
+    console.log('Creating user profile with service role key')
+    if (supabaseAdmin) {
+      const { error: profileError } = await supabaseAdmin
+        .from('users')
+        .insert([
+          {
+            id: userId,
+            email,
+            full_name: ownerName || companyName,
+            user_type: 'owner',
+            company_id: null,
+          },
+        ])
+        .select()
+
+      if (profileError) {
+        console.warn('Profile creation warning:', profileError.message)
+        // Don't fail if profile exists
+        if (!profileError.message.includes('duplicate')) {
+          console.error('Profile error:', profileError)
+        }
+      } else {
+        console.log('User profile created')
+      }
+    } else {
+      console.warn('Skipping profile creation - no admin client')
+    }
 
     // Step 3: Create company (will be owned by email when user signs up)
     console.log('Creating company')
@@ -104,6 +129,20 @@ export async function POST(request: Request) {
 
     const companyId = companyData?.id
     console.log('Company created with ID:', companyId)
+
+    // Step 4: Update user with company_id if company was created
+    if (companyId && supabaseAdmin) {
+      const { error: updateError } = await supabaseAdmin
+        .from('users')
+        .update({ company_id: companyId })
+        .eq('id', userId)
+      
+      if (updateError) {
+        console.warn('User update warning:', updateError.message)
+      } else {
+        console.log('User updated with company_id')
+      }
+    }
 
     // Success
     return Response.json(
