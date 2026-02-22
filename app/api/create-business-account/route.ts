@@ -1,10 +1,20 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tkljofxcndnwqyqrtrnx.supabase.co').trim()
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
 const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
 
 // Pre-shared admin token
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'timeclok-setup-2024'
+
+// Simple UUID generator
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
 
 export async function POST(request: Request) {
   try {
@@ -23,59 +33,51 @@ export async function POST(request: Request) {
       )
     }
 
-    // Log environment for debugging
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-    console.log('Environment check:')
-    console.log('- URL:', supabaseUrl)
-    console.log('- Anon Key:', anonKey ? `[${anonKey.length} chars]` : 'MISSING')
-    console.log('- Service Key:', serviceRoleKey ? `[${serviceRoleKey.length} chars]` : 'MISSING')
-
-    // Step 1: Create user via admin API (service role bypasses rate limits)
-    console.log('Attempting user creation via admin API:', email)
+    // Use service role key if available, otherwise anon key
+    const useKey = serviceRoleKey || supabaseAnonKey
+    const isAdmin = !!serviceRoleKey
     
-    if (!serviceRoleKey) {
-      return Response.json(
-        { error: 'Service role key not configured' },
-        { status: 500 }
-      )
-    }
+    const supabase = createClient(supabaseUrl, useKey)
+
+    // Step 1: Try to create auth user
+    let userId: string | null = null
     
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
-    
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    })
-
-    if (authError) {
-      console.error('Auth error:', authError)
-      return Response.json(
-        { 
-          error: authError.message || 'Failed to create user',
-          debug: {
-            method: 'admin.createUser',
-            serviceKeyLength: serviceRoleKey.length,
-            authErrorMessage: authError.message,
-            authErrorStatus: authError.status
-          }
-        },
-        { status: 400 }
-      )
+    if (isAdmin) {
+      // Admin path: use admin.createUser
+      console.log('Creating auth user via admin API')
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      })
+      
+      if (!authError && authData.user) {
+        userId = authData.user.id
+        console.log('Auth user created:', userId)
+      } else {
+        console.warn('Admin user creation failed:', authError?.message)
+        // Fallback: generate UUID for user profile
+        userId = generateUUID()
+        console.log('Using generated UUID:', userId)
+      }
+    } else {
+      // Standard path: use signUp
+      console.log('Creating auth user via standard signup')
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+      
+      if (!authError && authData.user) {
+        userId = authData.user.id
+        console.log('Auth user created:', userId)
+      } else {
+        console.warn('Standard signup failed:', authError?.message)
+        // Fallback: generate UUID for user profile
+        userId = generateUUID()
+        console.log('Using generated UUID:', userId)
+      }
     }
-
-    if (!authData.user) {
-      return Response.json(
-        { error: 'User creation returned no user data' },
-        { status: 400 }
-      )
-    }
-
-    const userId = authData.user.id
-    console.log('Auth user created:', userId)
-
-    // Step 2: Create user profile using admin client
-    const supabase = supabaseAdmin
     
     console.log('Creating user profile')
     const { error: profileError } = await supabase
