@@ -1,18 +1,95 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Language, translations, getTranslation } from './i18n'
+import { createClient } from './lib/supabase'
+
+// Client-side Supabase auth integration
 
 export default function Home() {
+  const router = useRouter()
+  const supabase = createClient()
+  
   const [lang, setLang] = useState<Language>('en')
   const [screen, setScreen] = useState<'landing' | 'login' | 'signup' | 'company'>('landing')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [userType, setUserType] = useState<'owner' | 'employee' | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const t = (key: keyof typeof translations.en) => getTranslation(lang, key)
+
+  const handleOwnerSignup = async () => {
+    if (!email || !password || !companyName) {
+      setError('Please fill in all fields')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+      if (signUpError) throw signUpError
+      if (data.user) {
+        router.push('/owner/dashboard')
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to sign up')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEmployeeSignup = async () => {
+    if (!email || !password) {
+      setError('Please fill in all fields')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+      if (signUpError) throw signUpError
+      if (data.user) {
+        router.push('/employee/dashboard')
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to sign up')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      setError('Please fill in all fields')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      if (signInError) throw signInError
+      if (data.user) {
+        router.push('/owner/dashboard')
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to log in')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div style={{
@@ -178,7 +255,10 @@ export default function Home() {
                   }}
                 />
               </div>
+              {error && <div style={{ color: '#ff006e', marginBottom: '1rem', fontSize: '0.875rem' }}>{error}</div>}
               <button
+                onClick={handleOwnerSignup}
+                disabled={loading}
                 style={{
                   width: '100%',
                   background: '#00d9ff',
@@ -188,13 +268,14 @@ export default function Home() {
                   border: 'none',
                   fontWeight: '700',
                   marginBottom: '1rem',
-                  cursor: 'pointer',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.6 : 1,
                 }}
               >
-                {t('signup')}
+                {loading ? 'Creating...' : t('signup')}
               </button>
               <button
-                onClick={() => { setUserType(null); setScreen('landing') }}
+                onClick={() => { setUserType(null); setScreen('landing'); setError('') }}
                 style={{
                   width: '100%',
                   background: 'transparent',
@@ -244,25 +325,27 @@ export default function Home() {
                   }}
                 />
               </div>
-              <Link href="/owner/dashboard">
-                <button
-                  style={{
-                    width: '100%',
-                    background: '#00d9ff',
-                    color: '#000',
-                    padding: '0.75rem',
-                    borderRadius: '0.5rem',
-                    border: 'none',
-                    fontWeight: '700',
-                    marginBottom: '1rem',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {t('login')}
-                </button>
-              </Link>
+              {error && <div style={{ color: '#ff006e', marginBottom: '1rem', fontSize: '0.875rem' }}>{error}</div>}
               <button
-                onClick={() => setScreen('landing')}
+                onClick={handleLogin}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  background: '#00d9ff',
+                  color: '#000',
+                  padding: '0.75rem',
+                  borderRadius: '0.5rem',
+                  border: 'none',
+                  fontWeight: '700',
+                  marginBottom: '1rem',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.6 : 1,
+                }}
+              >
+                {loading ? 'Logging in...' : t('login')}
+              </button>
+              <button
+                onClick={() => { setScreen('landing'); setError('') }}
                 style={{
                   width: '100%',
                   background: 'transparent',
@@ -312,25 +395,27 @@ export default function Home() {
                   }}
                 />
               </div>
-              <Link href="/employee/dashboard">
-                <button
-                  style={{
-                    width: '100%',
-                    background: '#ff006e',
-                    color: '#fff',
-                    padding: '0.75rem',
-                    borderRadius: '0.5rem',
-                    border: 'none',
-                    fontWeight: '700',
-                    marginBottom: '1rem',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {t('signup')}
-                </button>
-              </Link>
+              {error && <div style={{ color: '#ff006e', marginBottom: '1rem', fontSize: '0.875rem' }}>{error}</div>}
               <button
-                onClick={() => { setUserType(null); setScreen('landing') }}
+                onClick={handleEmployeeSignup}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  background: '#ff006e',
+                  color: '#fff',
+                  padding: '0.75rem',
+                  borderRadius: '0.5rem',
+                  border: 'none',
+                  fontWeight: '700',
+                  marginBottom: '1rem',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.6 : 1,
+                }}
+              >
+                {loading ? 'Creating...' : t('signup')}
+              </button>
+              <button
+                onClick={() => { setUserType(null); setScreen('landing'); setError('') }}
                 style={{
                   width: '100%',
                   background: 'transparent',
