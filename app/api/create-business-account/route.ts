@@ -1,10 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://tkljofxcndnwqyqrtrnx.supabase.co'
-const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrbGpvZnhjbmRud3F5cXJ0cm54Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3NjczMTUsImV4cCI6MjA4NzM0MzMxNX0.9A8mB1gkW4TUBBIt8ybqsWQ6XXYLWQDLjENonRoGLMY'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tkljofxcndnwqyqrtrnx.supabase.co'
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
 // Pre-shared admin token
-const ADMIN_TOKEN = 'timeclok-setup-2024'
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'timeclok-setup-2024'
 
 export async function POST(request: Request) {
   try {
@@ -23,14 +24,15 @@ export async function POST(request: Request) {
       )
     }
 
-    // Use anon key for signup
-    const supabase = createClient(supabaseUrl, anonKey)
+    // Use service role key for admin account creation (bypasses rate limits)
+    const supabase = createClient(supabaseUrl, serviceRoleKey || anonKey)
 
-    // Step 1: Sign up user
+    // Step 1: Sign up user via service role (bypasses email rate limiting)
     console.log('Creating auth user:', email)
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
+      email_confirm: true, // Auto-confirm email for fast onboarding
     })
 
     if (authError) {
@@ -44,65 +46,47 @@ export async function POST(request: Request) {
     const userId = authData.user.id
     console.log('Auth user created:', userId)
 
-    // Step 2: Try to sign in immediately (bypasses email confirmation if not enforced)
-    console.log('Attempting immediate signin')
-    let sessionData = null
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    // Step 2: Create user profile with service role key (RLS bypass for profile creation)
+    console.log('Creating user profile')
+    const { error: profileError } = await supabase
+      .from('users')
+      .insert([
+        {
+          id: userId,
+          email,
+          full_name: ownerName || companyName,
+          user_type: 'owner',
+          company_id: null,
+        },
+      ])
+      .select()
 
-    if (signInError) {
-      console.log('SignIn error (may need email confirmation):', signInError.message)
-      // Create account anyway - user will get credentials
-    } else {
-      sessionData = signInData
-      console.log('SignIn successful')
+    if (profileError) {
+      console.warn('Profile creation warning:', profileError.message)
+      // Don't fail if profile exists
+      if (!profileError.message.includes('duplicate')) {
+        throw profileError
+      }
     }
 
-    // Step 3: Create user profile with authenticated session
-    if (sessionData?.session) {
-      console.log('Creating user profile')
-      const { error: profileError } = await supabase
+    // Step 3: Create company
+    console.log('Creating company')
+    const { data: companyData, error: compError } = await supabase
+      .from('companies')
+      .insert([{ name: companyName, owner_id: userId }])
+      .select()
+      .single()
+
+    if (compError && !compError.message.includes('duplicate')) {
+      throw new Error('Failed to create company: ' + compError.message)
+    }
+
+    // Step 4: Update user with company_id if company was created
+    if (companyData?.id) {
+      await supabase
         .from('users')
-        .insert([
-          {
-            id: userId,
-            email,
-            full_name: ownerName || companyName,
-            user_type: 'owner',
-            company_id: null,
-          },
-        ])
-        .select()
-
-      if (profileError) {
-        console.warn('Profile creation warning:', profileError.message)
-        // Don't fail if profile exists
-        if (!profileError.message.includes('duplicate')) {
-          throw profileError
-        }
-      }
-
-      // Step 4: Create company
-      console.log('Creating company')
-      const { data: companyData, error: compError } = await supabase
-        .from('companies')
-        .insert([{ name: companyName, owner_id: userId }])
-        .select()
-        .single()
-
-      if (compError && !compError.message.includes('duplicate')) {
-        throw new Error('Failed to create company: ' + compError.message)
-      }
-
-      // Update user with company_id if company was created
-      if (companyData?.id) {
-        await supabase
-          .from('users')
-          .update({ company_id: companyData.id })
-          .eq('id', userId)
-      }
+        .update({ company_id: companyData.id })
+        .eq('id', userId)
     }
 
     // Success
