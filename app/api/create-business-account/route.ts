@@ -33,19 +33,19 @@ export async function POST(request: Request) {
       )
     }
 
-    // Use service role key if available, otherwise anon key
-    const useKey = serviceRoleKey || supabaseAnonKey
+    // Use service role key for auth, anon key for database operations
     const isAdmin = !!serviceRoleKey
     
-    const supabase = createClient(supabaseUrl, useKey)
+    const supabaseAdmin = isAdmin ? createClient(supabaseUrl, serviceRoleKey) : null
+    const supabase = createClient(supabaseUrl, supabaseAnonKey) // Always use anon key for database
 
     // Step 1: Try to create auth user
     let userId: string | null = null
     
-    if (isAdmin) {
+    if (isAdmin && supabaseAdmin) {
       // Admin path: use admin.createUser
       console.log('Creating auth user via admin API')
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
