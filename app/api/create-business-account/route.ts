@@ -39,45 +39,50 @@ export async function POST(request: Request) {
     const supabaseAdmin = isAdmin ? createClient(supabaseUrl, serviceRoleKey) : null
     const supabase = createClient(supabaseUrl, supabaseAnonKey) // Always use anon key for database
 
-    // Step 1: Create auth user via standard signup (works even on anon key)
-    console.log('Creating auth user via signup')
+    // Step 1: Create auth user
+    console.log('Creating auth user, isAdmin:', isAdmin)
     let userId: string | null = null
     let authCreated = false
     
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-    })
+    // Try admin API first if we have the service role key
+    if (isAdmin && supabaseAdmin) {
+      console.log('Trying admin API first')
+      const { data: adminAuthData, error: adminAuthError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      })
+      
+      if (!adminAuthError && adminAuthData.user) {
+        userId = adminAuthData.user.id
+        authCreated = true
+        console.log('Auth user created via admin API:', userId)
+      } else {
+        console.warn('Admin API failed:', adminAuthError?.message)
+      }
+    }
     
-    if (!authError && authData.user) {
-      userId = authData.user.id
-      authCreated = true
-      console.log('Auth user created:', userId)
-    } else {
-      console.warn('Signup failed, trying admin API')
+    // Fall back to standard signup if admin failed
+    if (!authCreated) {
+      console.log('Trying standard signup')
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      })
       
-      // Try admin path if standard path fails
-      if (isAdmin && supabaseAdmin) {
-        const { data: adminAuthData, error: adminAuthError } = await supabaseAdmin.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-        })
-        
-        if (!adminAuthError && adminAuthData.user) {
-          userId = adminAuthData.user.id
-          authCreated = true
-          console.log('Auth user created via admin:', userId)
-        } else {
-          console.warn('Admin creation also failed')
-        }
+      if (!authError && authData.user) {
+        userId = authData.user.id
+        authCreated = true
+        console.log('Auth user created via signup:', userId)
+      } else {
+        console.warn('Signup failed:', authError?.message)
       }
-      
-      // Final fallback: use UUID
-      if (!userId) {
-        userId = generateUUID()
-        console.log('Using fallback UUID:', userId)
-      }
+    }
+    
+    // Final fallback: use UUID
+    if (!userId) {
+      userId = generateUUID()
+      console.log('Using fallback UUID:', userId)
     }
     
     // Skip user profile creation due to RLS restrictions with anon key
