@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
 import { generateW2CSV, downloadCSV } from '../../lib/export'
+import { createEmployeeInvite } from '../../lib/invites'
 
 export default function OwnerDashboard() {
   const router = useRouter()
@@ -15,6 +16,11 @@ export default function OwnerDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [user, setUser] = useState<any>(null)
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteSuccess, setInviteSuccess] = useState('')
+  const [inviteUrl, setInviteUrl] = useState('')
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -33,11 +39,22 @@ export default function OwnerDashboard() {
     try {
       setLoading(true)
       
+      // Fetch company data
+      const { data: companyData, error: compError } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('owner_id', userId)
+        .single()
+      
+      if (compError && compError.code !== 'PGRST116') throw compError
+      
+      const companyId = companyData?.id || userId
+      
       // Fetch employees for this owner's company
       const { data: employeesData, error: empError } = await supabase
         .from('employees')
         .select('*, users(email, full_name)')
-        .eq('company_id', userId)
+        .eq('company_id', companyId)
       
       if (empError) throw empError
 
@@ -76,6 +93,30 @@ export default function OwnerDashboard() {
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/')
+  }
+
+  const handleSendInvite = async () => {
+    if (!inviteEmail || !inviteEmail.includes('@')) {
+      setError('Please enter a valid email address')
+      return
+    }
+
+    setInviteLoading(true)
+    setError('')
+    setInviteSuccess('')
+
+    try {
+      const result = await createEmployeeInvite(user.id, inviteEmail, user.email || 'Admin')
+      if (result.error) throw new Error(result.error)
+
+      setInviteUrl(result.inviteUrl)
+      setInviteSuccess(`Invite link created! Share this with your employee:\n\n${result.inviteUrl}`)
+      setInviteEmail('')
+    } catch (err: any) {
+      setError(err.message || 'Failed to create invite')
+    } finally {
+      setInviteLoading(false)
+    }
   }
 
   const totalPayroll = payroll
@@ -204,9 +245,139 @@ export default function OwnerDashboard() {
           {/* Employees Tab */}
           {activeTab === 'employees' && (
             <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' }}>Your Employees</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>Your Employees</h2>
+                <button
+                  onClick={() => { setShowInviteModal(true); setInviteSuccess(''); setInviteUrl('') }}
+                  style={{
+                    background: '#00d9ff',
+                    color: '#000',
+                    border: 'none',
+                    padding: '0.75rem 1.5rem',
+                    borderRadius: '0.5rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ➕ Add Employee
+                </button>
+              </div>
+
+              {/* Invite Modal */}
+              {showInviteModal && (
+                <div style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'rgba(0, 0, 0, 0.5)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 100,
+                }}>
+                  <div style={{
+                    background: '#0a0a0a',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    padding: '2rem',
+                    borderRadius: '1rem',
+                    maxWidth: '500px',
+                    width: '90%',
+                  }}>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '1.5rem' }}>
+                      Invite Employee
+                    </h3>
+
+                    {inviteSuccess ? (
+                      <div style={{
+                        background: 'rgba(100, 200, 100, 0.1)',
+                        border: '1px solid rgba(100, 200, 100, 0.3)',
+                        color: '#64c864',
+                        padding: '1rem',
+                        borderRadius: '0.5rem',
+                        marginBottom: '1.5rem',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-all',
+                        fontSize: '0.875rem',
+                      }}>
+                        {inviteSuccess}
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          type="email"
+                          placeholder="employee@example.com"
+                          value={inviteEmail}
+                          onChange={(e) => setInviteEmail(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem 1rem',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            borderRadius: '0.5rem',
+                            color: '#fff',
+                            marginBottom: '1.5rem',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                        {error && (
+                          <div style={{
+                            background: 'rgba(255, 0, 110, 0.2)',
+                            color: '#ff006e',
+                            padding: '0.75rem',
+                            borderRadius: '0.5rem',
+                            marginBottom: '1rem',
+                            fontSize: '0.875rem',
+                          }}>
+                            {error}
+                          </div>
+                        )}
+                        <button
+                          onClick={handleSendInvite}
+                          disabled={inviteLoading}
+                          style={{
+                            width: '100%',
+                            background: '#00d9ff',
+                            color: '#000',
+                            border: 'none',
+                            padding: '0.75rem',
+                            borderRadius: '0.5rem',
+                            fontWeight: '600',
+                            cursor: inviteLoading ? 'not-allowed' : 'pointer',
+                            opacity: inviteLoading ? 0.6 : 1,
+                            marginBottom: '0.5rem',
+                          }}
+                        >
+                          {inviteLoading ? 'Creating Invite...' : 'Create Invite Link'}
+                        </button>
+                      </>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        setShowInviteModal(false)
+                        setInviteEmail('')
+                        setInviteSuccess('')
+                      }}
+                      style={{
+                        width: '100%',
+                        background: 'transparent',
+                        color: '#999',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        padding: '0.75rem',
+                        borderRadius: '0.5rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {employees.length === 0 ? (
-                <div style={{ color: '#999', textAlign: 'center', padding: '2rem' }}>No employees yet. Invite your first employee to get started.</div>
+                <div style={{ color: '#999', textAlign: 'center', padding: '2rem' }}>No employees yet. Click "Add Employee" above to invite your first employee.</div>
               ) : (
                 <div style={{ display: 'grid', gap: '1rem' }}>
                   {employees.map((emp) => (
