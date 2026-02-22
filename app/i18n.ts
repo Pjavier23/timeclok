@@ -47,7 +47,7 @@ export const translations = {
     // Payroll
     payroll: 'Payroll',
     totalEarnings: 'Total Earnings',
-    hourlyRate: 'Hourly Rate',
+    ratePerHour: 'Hourly Rate',
     paymentMethod: 'Payment Method',
     zelle: 'Zelle',
     check: 'Check',
@@ -119,7 +119,7 @@ export const translations = {
     // Payroll
     payroll: 'Nómina',
     totalEarnings: 'Ingresos Totales',
-    hourlyRate: 'Tarifa por Hora',
+    ratePerHour: 'Tarifa por Hora',
     paymentMethod: 'Método de Pago',
     zelle: 'Zelle',
     check: 'Cheque',

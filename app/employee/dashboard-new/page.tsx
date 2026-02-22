@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Language, getTranslation } from '@/app/i18n'
+import { Language, getTranslation } from '../../i18n'
 
 export default function EmployeeDashboard() {
   const [lang, setLang] = useState<Language>('en')
