@@ -54,9 +54,8 @@ export async function POST(request: Request) {
         { 
           error: authError.message || 'Failed to create user',
           debug: {
-            supabaseUrl,
-            anonKeyExists: !!anonKey,
-            anonKeyLength: anonKey.length,
+            method: 'admin.createUser',
+            serviceKeyLength: serviceRoleKey.length,
             authErrorMessage: authError.message,
             authErrorStatus: authError.status
           }
