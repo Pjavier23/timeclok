@@ -39,6 +39,7 @@ export async function POST(request: Request) {
     
     const headers = {
       'Content-Type': 'application/json',
+      'apikey': serviceRoleKey,
       'Authorization': `Bearer ${serviceRoleKey}`,
     }
     console.log('Request headers:', { 'Content-Type': headers['Content-Type'], 'Authorization': `Bearer [${serviceRoleKey.length} chars]` })
@@ -58,18 +59,16 @@ export async function POST(request: Request) {
     console.log('Admin API response ok:', createUserResponse.ok)
     console.log('Admin API response text:', responseText)
 
-    // Return the ACTUAL API response so we can debug what's happening
-    return Response.json(
-      { 
-        debug: {
-          status: createUserResponse.status,
-          ok: createUserResponse.ok,
-          response: responseText,
-          headerAuth: `Bearer [${serviceRoleKey.length} chars]`
-        }
-      },
-      { status: 200 }
-    )
+    if (!createUserResponse.ok) {
+      let error
+      try {
+        error = JSON.parse(responseText)
+      } catch {
+        error = { message: responseText }
+      }
+      console.error('Admin API error:', error)
+      throw new Error(error.message || error.hint || 'Failed to create user')
+    }
 
     let authData
     try {
