@@ -34,15 +34,13 @@ export async function POST(request: Request) {
     console.log('Creating auth user via Admin API:', email)
     const adminApiUrl = `${supabaseUrl}/auth/v1/admin/users`
     console.log('Admin URL:', adminApiUrl)
-    console.log('Service key length:', serviceRoleKey.length)
-    console.log('Service key starts with sb_secret:', serviceRoleKey.startsWith('sb_secret'))
+    console.log('Service key from env:', serviceRoleKey ? `[${serviceRoleKey.length} chars, starts: ${serviceRoleKey.substring(0, 15)}...]` : 'EMPTY')
     
     const headers = {
       'Content-Type': 'application/json',
       'apikey': serviceRoleKey,
       'Authorization': `Bearer ${serviceRoleKey}`,
     }
-    console.log('Request headers:', { 'Content-Type': headers['Content-Type'], 'Authorization': `Bearer [${serviceRoleKey.length} chars]` })
     
     const createUserResponse = await fetch(adminApiUrl, {
       method: 'POST',
@@ -67,7 +65,19 @@ export async function POST(request: Request) {
         error = { message: responseText }
       }
       console.error('Admin API error:', error)
-      throw new Error(error.message || error.hint || 'Failed to create user')
+      return Response.json(
+        {
+          error: error.message || error.hint || 'Failed to create user',
+          debug: {
+            serviceKeyExists: !!serviceRoleKey,
+            serviceKeyLength: serviceRoleKey.length,
+            serviceKeyStart: serviceRoleKey.substring(0, 20),
+            supabaseUrl,
+            adminUrl: adminApiUrl
+          }
+        },
+        { status: 400 }
+      )
     }
 
     let authData
