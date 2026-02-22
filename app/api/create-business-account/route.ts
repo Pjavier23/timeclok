@@ -24,7 +24,10 @@ export async function POST(request: Request) {
     }
 
     if (!serviceRoleKey) {
-      throw new Error('Service role key not configured')
+      return Response.json(
+        { error: 'Service role key not configured in environment', debug: { hasKey: !!serviceRoleKey } },
+        { status: 500 }
+      )
     }
 
     // Step 1: Create user via Supabase Admin API (bypasses email rate limiting)
