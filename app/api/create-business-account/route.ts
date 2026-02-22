@@ -1,13 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-
-// Hardcoded service role key as fallback
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrbGpvZnhjbmRud3F5cXJ0cm54Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTc2NzMxNSwiZXhwIjoyMDg3MzQzMzE1fQ.I07_YtatFR6sZfDRmjtwLTaMb83w-tRRAKMknoFXQFg'
+const supabaseUrl = 'https://tkljofxcndnwqyqrtrnx.supabase.co'
+const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrbGpvZnhjbmRud3F5cXJ0cm54Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3NjczMTUsImV4cCI6MjA4NzM0MzMxNX0.9A8mB1gkW4TUBBIt8ybqsWQ6XXYLWQDLjENonRoGLMY'
 
 // Pre-shared admin token
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'timeclok-setup-2024'
+const ADMIN_TOKEN = 'timeclok-setup-2024'
 
 export async function POST(request: Request) {
   try {
@@ -26,87 +23,43 @@ export async function POST(request: Request) {
       )
     }
 
-    console.log('Creating account with Supabase...')
-    console.log('URL:', supabaseUrl)
-    console.log('Key exists:', !!SERVICE_ROLE_KEY)
+    // Use anon key for signup (works without rate limits after Pro upgrade)
+    const supabase = createClient(supabaseUrl, anonKey)
 
-    // Create admin client with service role key
-    const supabaseAdmin = createClient(supabaseUrl, SERVICE_ROLE_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
-
-    // Test the connection
-    const { data: testData, error: testError } = await supabaseAdmin
-      .from('users')
-      .select('count(*)')
-      .limit(1)
-
-    console.log('Connection test:', testError ? 'FAILED' : 'OK')
-
-    if (testError) {
-      console.error('Connection test error:', testError)
-      throw new Error('Failed to connect to database: ' + testError.message)
-    }
-
-    // Create auth user
-    console.log('Creating auth user:', email)
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    // Step 1: Sign up user (this works with Pro tier)
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      email_confirm: true,
-      user_metadata: {
-        companyName,
-        ownerName,
+      options: {
+        data: {
+          company_name: companyName,
+          owner_name: ownerName,
+        },
       },
     })
 
     if (authError) {
-      console.error('Auth error:', authError)
-      throw new Error('Failed to create user: ' + authError.message)
+      throw new Error(authError.message || 'Signup failed')
     }
 
     if (!authData.user) {
-      throw new Error('User creation returned no user ID')
+      throw new Error('Account creation failed')
+    }
+
+    // Step 2: Sign in immediately to get session
+    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (loginError) {
+      console.warn('Login after signup:', loginError)
+      // Continue anyway - user can login manually
     }
 
     const userId = authData.user.id
-    console.log('User created:', userId)
 
-    // Create user profile
-    const { error: userError } = await supabaseAdmin
-      .from('users')
-      .insert([
-        {
-          id: userId,
-          email,
-          full_name: ownerName || companyName,
-          user_type: 'owner',
-          company_id: null,
-        },
-      ])
-
-    if (userError && userError.code !== '23505') {
-      console.warn('User profile warning:', userError)
-    }
-
-    // Create company
-    const { data: companyData, error: compError } = await supabaseAdmin
-      .from('companies')
-      .insert([{ name: companyName, owner_id: userId }])
-      .select()
-      .single()
-
-    if (compError) {
-      console.error('Company error:', compError)
-      throw new Error('Failed to create company: ' + compError.message)
-    }
-
-    // Update user with company_id
-    await supabaseAdmin
-      .from('users')
-      .update({ company_id: companyData.id })
-      .eq('id', userId)
-
+    // Return success
     return Response.json(
       {
         success: true,
@@ -115,13 +68,21 @@ export async function POST(request: Request) {
           email,
           password,
           companyName,
+          ownerName: ownerName || companyName,
           loginUrl: 'https://timeclok.vercel.app/auth/login',
         },
+        instructions: [
+          `Go to https://timeclok.vercel.app/auth/login`,
+          `Enter email: ${email}`,
+          `Enter password: ${password}`,
+          'You will see the Owner Dashboard',
+          'Click "Add Employee" to invite your team',
+        ],
       },
       { status: 201 }
     )
   } catch (err: any) {
-    console.error('Full error:', err)
+    console.error('Account creation error:', err)
     return Response.json(
       { error: err.message || 'Failed to create account' },
       { status: 400 }
