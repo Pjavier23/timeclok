@@ -1,63 +1,177 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '../../lib/supabase'
 
 export default function EmployeeDashboard() {
-  const [isClockedIn, setIsClockedIn] = useState(false)
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [activeTab, setActiveTab] = useState<'clock' | 'earnings' | 'profile'>('clock')
+  const router = useRouter()
+  const supabase = createClient()
 
-  // Mock employee data
-  const employee = {
-    name: 'John Martinez',
-    role: 'Contractor',
-    rate: 25,
-    profileImage: '👨‍💼',
+  const [user, setUser] = useState<any>(null)
+  const [employee, setEmployee] = useState<any>(null)
+  const [timeEntries, setTimeEntries] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<'clock' | 'earnings' | 'profile'>('clock')
+  const [isClockedIn, setIsClockedIn] = useState(false)
+  const [currentSession, setCurrentSession] = useState<any>(null)
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const initDashboard = async () => {
+      try {
+        // Check auth
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          router.push('/')
+          return
+        }
+        setUser(user)
+
+        // Fetch employee profile
+        const { data: empData, error: empError } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('user_id', user.id)
+          .single()
+
+        if (empError && empError.code !== 'PGRST116') throw empError
+        setEmployee(empData || { hourly_rate: 25 })
+
+        // Fetch time entries
+        if (empData?.id) {
+          const { data: entries, error: entError } = await supabase
+            .from('time_entries')
+            .select('*')
+            .eq('employee_id', empData.id)
+            .order('clock_in', { ascending: false })
+
+          if (entError) throw entError
+          setTimeEntries(entries || [])
+
+          // Check if currently clocked in
+          const active = entries?.find(e => !e.clock_out)
+          if (active) {
+            setIsClockedIn(true)
+            setCurrentSession(active)
+          }
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to load dashboard')
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    initDashboard()
+  }, [])
+
+  const getLocation = async (): Promise<{ lat: number; lng: number } | null> => {
+    return new Promise((resolve) => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            resolve({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            })
+          },
+          () => {
+            setError('Could not access location. Please enable GPS.')
+            resolve(null)
+          }
+        )
+      }
+    })
   }
 
-  const mockTimeEntries = [
-    { id: 1, date: 'Feb 23, 2026', clockIn: '9:00 AM', clockOut: '5:30 PM', hours: 8.5, project: 'Downtown Renovation' },
-    { id: 2, date: 'Feb 22, 2026', clockIn: '9:15 AM', clockOut: '6:00 PM', hours: 8.75, project: 'Downtown Renovation' },
-    { id: 3, date: 'Feb 21, 2026', clockIn: '8:45 AM', clockOut: '5:15 PM', hours: 8.5, project: 'Downtown Renovation' },
-    { id: 4, date: 'Feb 20, 2026', clockIn: '9:30 AM', clockOut: '5:45 PM', hours: 8.25, project: 'Downtown Renovation' },
-    { id: 5, date: 'Feb 19, 2026', clockIn: '9:00 AM', clockOut: '5:00 PM', hours: 8, project: 'Downtown Renovation' },
-  ]
+  const handleClockIn = async () => {
+    try {
+      setError('')
+      const loc = await getLocation()
+      if (!loc) return
 
-  const totalHours = mockTimeEntries.reduce((sum, entry) => sum + entry.hours, 0)
-  const totalEarned = (totalHours * employee.rate).toFixed(2)
+      if (!employee?.id) throw new Error('Employee profile not found')
 
-  const getLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          })
-        },
-        (error) => {
-          console.log('Location error:', error)
-          alert('Location access denied. Please enable location services.')
-        }
-      )
+      const { data, error: err } = await supabase
+        .from('time_entries')
+        .insert([{
+          employee_id: employee.id,
+          clock_in: new Date().toISOString(),
+          latitude: loc.lat,
+          longitude: loc.lng,
+          approval_status: 'pending',
+        }])
+        .select()
+        .single()
+
+      if (err) throw err
+
+      setCurrentSession(data)
+      setIsClockedIn(true)
+      setLocation(loc)
+    } catch (err: any) {
+      setError(err.message || 'Failed to clock in')
     }
   }
 
-  const handleClockIn = () => {
-    getLocation()
-    setIsClockedIn(true)
+  const handleClockOut = async () => {
+    try {
+      setError('')
+      if (!currentSession?.id) throw new Error('No active session')
+
+      const clockInTime = new Date(currentSession.clock_in)
+      const clockOutTime = new Date()
+      const hoursWorked = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60)
+
+      const { error: err } = await supabase
+        .from('time_entries')
+        .update({
+          clock_out: clockOutTime.toISOString(),
+          hours_worked: parseFloat(hoursWorked.toFixed(2)),
+        })
+        .eq('id', currentSession.id)
+
+      if (err) throw err
+
+      setIsClockedIn(false)
+      setCurrentSession(null)
+
+      // Refresh entries
+      const { data: entries } = await supabase
+        .from('time_entries')
+        .select('*')
+        .eq('employee_id', employee.id)
+        .order('clock_in', { ascending: false })
+
+      setTimeEntries(entries || [])
+    } catch (err: any) {
+      setError(err.message || 'Failed to clock out')
+    }
   }
 
-  const handleClockOut = () => {
-    setIsClockedIn(false)
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+  }
+
+  const totalHours = timeEntries
+    .filter(e => e.hours_worked)
+    .reduce((sum, e) => sum + (e.hours_worked || 0), 0)
+  const totalEarned = (totalHours * (employee?.hourly_rate || 0)).toFixed(2)
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0a0a0a', color: '#fff' }}>
+        <div>Loading dashboard...</div>
+      </div>
+    )
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#0a0a0a',
-      color: '#fff',
-    }}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff' }}>
       {/* Header */}
       <header style={{
         background: 'rgba(10, 10, 10, 0.95)',
@@ -75,18 +189,21 @@ export default function EmployeeDashboard() {
           justifyContent: 'space-between',
           alignItems: 'center',
         }}>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: '900' }}>
-            ⏱️ TimeClok
-          </h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: '900' }}>⏱️ TimeClok</h1>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <span style={{ color: '#999' }}>{employee.name}</span>
-            <button style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.5rem',
-              color: '#fff',
-            }}>
+            <span style={{ color: '#999', fontSize: '0.875rem' }}>{user?.email}</span>
+            <button
+              onClick={handleLogout}
+              style={{
+                background: 'rgba(255, 0, 110, 0.2)',
+                border: '1px solid rgba(255, 0, 110, 0.5)',
+                padding: '0.5rem 1rem',
+                borderRadius: '0.5rem',
+                color: '#ff006e',
+                cursor: 'pointer',
+                fontWeight: '600',
+              }}
+            >
               Logout
             </button>
           </div>
@@ -95,7 +212,9 @@ export default function EmployeeDashboard() {
 
       {/* Main Content */}
       <div style={{ marginTop: '80px', padding: '2rem' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+          {error && <div style={{ background: 'rgba(255, 0, 110, 0.2)', color: '#ff006e', padding: '1rem', borderRadius: '0.5rem', marginBottom: '2rem' }}>{error}</div>}
+
           {/* Tabs */}
           <div style={{
             display: 'flex',
@@ -110,18 +229,16 @@ export default function EmployeeDashboard() {
                 onClick={() => setActiveTab(tab)}
                 style={{
                   padding: '0.75rem 1.5rem',
-                  background: activeTab === tab ? '#ff006e' : 'transparent',
-                  color: activeTab === tab ? '#fff' : '#999',
-                  border: 'none',
+                  background: activeTab === tab ? 'rgba(255, 0, 110, 0.1)' : 'transparent',
+                  border: activeTab === tab ? '2px solid #ff006e' : '2px solid transparent',
+                  color: activeTab === tab ? '#ff006e' : '#999',
                   borderRadius: '0.5rem',
-                  fontWeight: '600',
                   cursor: 'pointer',
-                  transition: 'all 0.3s ease',
+                  fontWeight: '600',
+                  textTransform: 'capitalize',
                 }}
               >
-                {tab === 'clock' && '⏱️ Clock In/Out'}
-                {tab === 'earnings' && '💰 Earnings'}
-                {tab === 'profile' && '👤 Profile'}
+                {tab}
               </button>
             ))}
           </div>
@@ -129,143 +246,159 @@ export default function EmployeeDashboard() {
           {/* Clock In/Out Tab */}
           {activeTab === 'clock' && (
             <div>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '2rem' }}>Time Tracking</h2>
+
+              {/* Clock Status */}
               <div style={{
-                background: 'linear-gradient(135deg, rgba(255, 0, 110, 0.2), rgba(255, 0, 110, 0.05))',
-                border: '2px solid #ff006e',
-                padding: '3rem 2rem',
+                background: isClockedIn ? 'rgba(100, 200, 100, 0.1)' : 'rgba(255, 100, 100, 0.1)',
+                border: isClockedIn ? '2px solid rgba(100, 200, 100, 0.3)' : '2px solid rgba(255, 100, 100, 0.3)',
+                padding: '2rem',
                 borderRadius: '1rem',
                 textAlign: 'center',
                 marginBottom: '2rem',
               }}>
-                <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>
                   {isClockedIn ? '🟢' : '🔴'}
                 </div>
-                <h2 style={{ fontSize: '2rem', fontWeight: '700', marginBottom: '0.5rem' }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' }}>
                   {isClockedIn ? 'Clocked In' : 'Clocked Out'}
-                </h2>
-                <p style={{ color: '#bbb', marginBottom: '2rem' }}>
-                  {isClockedIn ? 'Currently working' : 'No active time entry'}
-                </p>
-
-                {location && (
-                  <p style={{ color: '#999', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-                    📍 Location verified ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})
-                  </p>
+                </div>
+                {isClockedIn && currentSession && (
+                  <div style={{ color: '#999', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                    Since {new Date(currentSession.clock_in).toLocaleTimeString()}
+                  </div>
                 )}
+                {location && (
+                  <div style={{ color: '#999', fontSize: '0.75rem', marginTop: '1rem' }}>
+                    📍 {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+                  </div>
+                )}
+              </div>
 
+              {/* Clock Buttons */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '3rem' }}>
                 <button
-                  onClick={isClockedIn ? handleClockOut : handleClockIn}
+                  onClick={handleClockIn}
+                  disabled={isClockedIn}
                   style={{
-                    background: isClockedIn ? '#ff006e' : '#00ff00',
-                    color: isClockedIn ? '#fff' : '#000',
-                    padding: '1rem 3rem',
-                    borderRadius: '0.5rem',
+                    background: isClockedIn ? 'rgba(0, 217, 255, 0.2)' : '#00d9ff',
+                    color: isClockedIn ? '#999' : '#000',
                     border: 'none',
+                    padding: '2rem',
+                    borderRadius: '1rem',
                     fontWeight: '700',
                     fontSize: '1.125rem',
-                    cursor: 'pointer',
+                    cursor: isClockedIn ? 'not-allowed' : 'pointer',
+                    opacity: isClockedIn ? 0.5 : 1,
                   }}
                 >
-                  {isClockedIn ? 'Clock Out' : 'Clock In'}
+                  Clock In
+                </button>
+                <button
+                  onClick={handleClockOut}
+                  disabled={!isClockedIn}
+                  style={{
+                    background: !isClockedIn ? 'rgba(255, 0, 110, 0.2)' : '#ff006e',
+                    color: !isClockedIn ? '#999' : '#fff',
+                    border: 'none',
+                    padding: '2rem',
+                    borderRadius: '1rem',
+                    fontWeight: '700',
+                    fontSize: '1.125rem',
+                    cursor: !isClockedIn ? 'not-allowed' : 'pointer',
+                    opacity: !isClockedIn ? 0.5 : 1,
+                  }}
+                >
+                  Clock Out
                 </button>
               </div>
 
               {/* Time Entries */}
-              <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '1rem' }}>
-                  Time Entries This Week
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {mockTimeEntries.map(entry => (
-                    <div key={entry.id} style={{
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      padding: '1rem',
-                      borderRadius: '0.75rem',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}>
-                      <div>
-                        <div style={{ fontWeight: '700', marginBottom: '0.25rem' }}>{entry.date}</div>
-                        <div style={{ color: '#999', fontSize: '0.875rem' }}>
-                          {entry.clockIn} - {entry.clockOut} ({entry.hours}h) • {entry.project}
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '1rem' }}>Recent Time Entries</h3>
+              {timeEntries.length === 0 ? (
+                <div style={{ color: '#999', textAlign: 'center', padding: '2rem' }}>No time entries yet.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: '1rem' }}>
+                  {timeEntries.map((entry) => (
+                    <div
+                      key={entry.id}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        padding: '1.5rem',
+                        borderRadius: '0.75rem',
+                      }}
+                    >
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '2rem' }}>
+                        <div>
+                          <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '0.5rem' }}>Date</div>
+                          <div style={{ fontWeight: '600' }}>
+                            {new Date(entry.clock_in).toLocaleDateString()}
+                          </div>
                         </div>
-                      </div>
-                      <div style={{ fontWeight: '700', fontSize: '1.125rem', color: '#ff006e' }}>
-                        ${(entry.hours * employee.rate).toFixed(2)}
+                        <div>
+                          <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '0.5rem' }}>Clock In</div>
+                          <div style={{ fontWeight: '600' }}>
+                            {new Date(entry.clock_in).toLocaleTimeString()}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '0.5rem' }}>Clock Out</div>
+                          <div style={{ fontWeight: '600' }}>
+                            {entry.clock_out ? new Date(entry.clock_out).toLocaleTimeString() : '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '0.5rem' }}>Hours</div>
+                          <div style={{ fontWeight: '600' }}>{entry.hours_worked?.toFixed(2) || '—'}</div>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              )}
             </div>
           )}
 
           {/* Earnings Tab */}
           {activeTab === 'earnings' && (
             <div>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '2rem' }}>Your Earnings</h2>
+
+              {/* Stats */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '1.5rem',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                gap: '2rem',
                 marginBottom: '2rem',
               }}>
                 <div style={{
-                  background: 'linear-gradient(135deg, rgba(0, 217, 255, 0.2), rgba(0, 217, 255, 0.05))',
-                  border: '1px solid #1dd1dd',
-                  padding: '1.5rem',
+                  background: 'rgba(0, 217, 255, 0.1)',
+                  border: '1px solid rgba(0, 217, 255, 0.3)',
+                  padding: '2rem',
                   borderRadius: '1rem',
                 }}>
-                  <div style={{ color: '#999', marginBottom: '0.5rem' }}>Hours This Week</div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#1dd1dd' }}>
-                    {totalHours}h
-                  </div>
+                  <div style={{ fontSize: '0.875rem', color: '#00d9ff', marginBottom: '0.5rem' }}>Total Hours</div>
+                  <div style={{ fontSize: '2.5rem', fontWeight: '900' }}>{totalHours.toFixed(1)}</div>
                 </div>
                 <div style={{
-                  background: 'linear-gradient(135deg, rgba(255, 0, 110, 0.2), rgba(255, 0, 110, 0.05))',
-                  border: '1px solid #ff006e',
-                  padding: '1.5rem',
+                  background: 'rgba(255, 221, 0, 0.1)',
+                  border: '1px solid rgba(255, 221, 0, 0.3)',
+                  padding: '2rem',
                   borderRadius: '1rem',
                 }}>
-                  <div style={{ color: '#999', marginBottom: '0.5rem' }}>Earnings This Week</div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#ff006e' }}>
-                    ${totalEarned}
-                  </div>
+                  <div style={{ fontSize: '0.875rem', color: '#ffdd00', marginBottom: '0.5rem' }}>Hourly Rate</div>
+                  <div style={{ fontSize: '2.5rem', fontWeight: '900' }}>${employee?.hourly_rate?.toFixed(2) || '0.00'}</div>
                 </div>
-              </div>
-
-              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '1rem' }}>
-                Breakdown
-              </h3>
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                borderRadius: '1rem',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                overflowX: 'auto',
-              }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                      <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '700' }}>Date</th>
-                      <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '700' }}>Hours</th>
-                      <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '700' }}>Rate</th>
-                      <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '700' }}>Earned</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mockTimeEntries.map(entry => (
-                      <tr key={entry.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                        <td style={{ padding: '1rem' }}>{entry.date}</td>
-                        <td style={{ padding: '1rem', textAlign: 'center' }}>{entry.hours}h</td>
-                        <td style={{ padding: '1rem', textAlign: 'center' }}>${employee.rate}</td>
-                        <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '700', color: '#ff006e' }}>
-                          ${(entry.hours * employee.rate).toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div style={{
+                  background: 'rgba(100, 200, 100, 0.1)',
+                  border: '1px solid rgba(100, 200, 100, 0.3)',
+                  padding: '2rem',
+                  borderRadius: '1rem',
+                }}>
+                  <div style={{ fontSize: '0.875rem', color: '#64c864', marginBottom: '0.5rem' }}>Total Earned</div>
+                  <div style={{ fontSize: '2.5rem', fontWeight: '900' }}>${totalEarned}</div>
+                </div>
               </div>
             </div>
           )}
@@ -273,77 +406,29 @@ export default function EmployeeDashboard() {
           {/* Profile Tab */}
           {activeTab === 'profile' && (
             <div>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '2rem' }}>Your Profile</h2>
+
               <div style={{
                 background: 'rgba(255, 255, 255, 0.05)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
                 padding: '2rem',
                 borderRadius: '1rem',
-                textAlign: 'center',
+                maxWidth: '600px',
               }}>
-                <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>
-                  {employee.profileImage}
-                </div>
-                <h2 style={{ fontSize: '1.75rem', fontWeight: '700', marginBottom: '0.5rem' }}>
-                  {employee.name}
-                </h2>
-                <p style={{ color: '#999', marginBottom: '2rem' }}>
-                  {employee.role} • ${employee.rate}/hr
-                </p>
-
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '1.5rem',
-                  marginBottom: '2rem',
-                }}>
-                  <div style={{
-                    background: 'rgba(0, 217, 255, 0.1)',
-                    padding: '1rem',
-                    borderRadius: '0.75rem',
-                  }}>
-                    <div style={{ color: '#999', fontSize: '0.875rem' }}>All-Time Hours</div>
-                    <div style={{ fontSize: '1.75rem', fontWeight: '900', color: '#1dd1dd' }}>
-                      156h
-                    </div>
+                <div style={{ display: 'grid', gap: '1.5rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '0.5rem' }}>Email</div>
+                    <div style={{ fontWeight: '600' }}>{user?.email}</div>
                   </div>
-                  <div style={{
-                    background: 'rgba(255, 0, 110, 0.1)',
-                    padding: '1rem',
-                    borderRadius: '0.75rem',
-                  }}>
-                    <div style={{ color: '#999', fontSize: '0.875rem' }}>All-Time Earnings</div>
-                    <div style={{ fontSize: '1.75rem', fontWeight: '900', color: '#ff006e' }}>
-                      $3,900
-                    </div>
+                  <div>
+                    <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '0.5rem' }}>Hourly Rate</div>
+                    <div style={{ fontWeight: '600' }}>${employee?.hourly_rate?.toFixed(2) || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '0.5rem' }}>Employee Type</div>
+                    <div style={{ fontWeight: '600' }}>{employee?.employee_type || 'Employee'}</div>
                   </div>
                 </div>
-
-                <button style={{
-                  width: '100%',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  color: '#fff',
-                  padding: '0.75rem',
-                  borderRadius: '0.5rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  marginBottom: '1rem',
-                }}>
-                  Edit Profile
-                </button>
-
-                <button style={{
-                  width: '100%',
-                  background: 'transparent',
-                  border: '1px solid #ff006e',
-                  color: '#ff006e',
-                  padding: '0.75rem',
-                  borderRadius: '0.5rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                }}>
-                  Download Tax Documents
-                </button>
               </div>
             </div>
           )}

@@ -36,6 +36,28 @@ export default function Home() {
       })
       if (signUpError) throw signUpError
       if (data.user) {
+        // Create company record
+        const { data: companyData, error: compError } = await supabase
+          .from('companies')
+          .insert([{ name: companyName, owner_id: data.user.id }])
+          .select()
+          .single()
+        
+        if (compError) throw compError
+
+        // Create user profile
+        const { error: userError } = await supabase
+          .from('users')
+          .insert([{
+            id: data.user.id,
+            email,
+            full_name: companyName + ' Owner',
+            user_type: 'owner',
+            company_id: companyData.id,
+          }])
+        
+        if (userError && userError.code !== '23505') throw userError
+
         router.push('/owner/dashboard')
       }
     } catch (err: any) {
@@ -59,6 +81,29 @@ export default function Home() {
       })
       if (signUpError) throw signUpError
       if (data.user) {
+        // Create user profile
+        const { error: userError } = await supabase
+          .from('users')
+          .insert([{
+            id: data.user.id,
+            email,
+            full_name: email.split('@')[0],
+            user_type: 'employee',
+          }])
+        
+        if (userError && userError.code !== '23505') throw userError
+
+        // Create employee record
+        const { error: empError } = await supabase
+          .from('employees')
+          .insert([{
+            user_id: data.user.id,
+            hourly_rate: 25,
+            employee_type: 'contractor',
+          }])
+        
+        if (empError && empError.code !== '23505') throw empError
+
         router.push('/employee/dashboard')
       }
     } catch (err: any) {
@@ -82,7 +127,17 @@ export default function Home() {
       })
       if (signInError) throw signInError
       if (data.user) {
-        router.push('/owner/dashboard')
+        // Fetch user profile to determine role
+        const { data: userProfile, error: profileError } = await supabase
+          .from('users')
+          .select('user_type')
+          .eq('id', data.user.id)
+          .single()
+        
+        if (profileError && profileError.code !== 'PGRST116') throw profileError
+        
+        const userType = userProfile?.user_type || 'owner'
+        router.push(userType === 'employee' ? '/employee/dashboard' : '/owner/dashboard')
       }
     } catch (err: any) {
       setError(err.message || 'Failed to log in')
