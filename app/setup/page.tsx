@@ -33,7 +33,10 @@ export default function SetupPage() {
         throw new Error(data.error || 'Failed to create account')
       }
 
-      setResult(data)
+      setResult({
+        ...data,
+        quickLoginUrl: `/login-redirect?email=${encodeURIComponent(formData.email)}&password=${encodeURIComponent(formData.password)}`
+      })
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -98,7 +101,7 @@ export default function SetupPage() {
             </div>
 
             <button
-              onClick={() => window.location.href = result.account.loginUrl}
+              onClick={() => window.location.href = result.quickLoginUrl}
               style={{
                 width: '100%',
                 padding: '0.75rem',
@@ -108,9 +111,26 @@ export default function SetupPage() {
                 borderRadius: '0.5rem',
                 fontWeight: '600',
                 cursor: 'pointer',
+                marginBottom: '1rem'
               }}
             >
-              Go to Login →
+              ⚡ Go to Dashboard (Instant Login)
+            </button>
+
+            <button
+              onClick={() => window.location.href = result.account.loginUrl}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: 'transparent',
+                color: '#00d9ff',
+                border: '2px solid #00d9ff',
+                borderRadius: '0.5rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+              }}
+            >
+              Manual Login
             </button>
           </div>
         ) : (

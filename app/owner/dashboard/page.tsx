@@ -72,7 +72,7 @@ export default function OwnerDashboard() {
     checkAuth()
   }, [])
 
-  const fetchDashboardData = async (userId: string) => {
+  const fetchDashboardData = async (userIdOrEmail: string) => {
     try {
       setLoading(true)
 

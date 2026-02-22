@@ -44,16 +44,20 @@ export async function POST(request: Request) {
     const userId = authData.user.id
     console.log('Auth user created:', userId)
 
-    // Step 2: Sign in to get session
-    console.log('Signing in user')
-    const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
+    // Step 2: Try to sign in immediately (bypasses email confirmation if not enforced)
+    console.log('Attempting immediate signin')
+    let sessionData = null
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
-    if (sessionError) {
-      console.warn('Session error:', sessionError)
-      // Continue anyway
+    if (signInError) {
+      console.log('SignIn error (may need email confirmation):', signInError.message)
+      // Create account anyway - user will get credentials
+    } else {
+      sessionData = signInData
+      console.log('SignIn successful')
     }
 
     // Step 3: Create user profile with authenticated session
