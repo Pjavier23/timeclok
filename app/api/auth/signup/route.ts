@@ -10,16 +10,39 @@ export async function POST(request: Request) {
 
     const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tkljofxcndnwqyqrtrnx.supabase.co').trim()
     const anonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
+    const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
     
-    const supabase = createClient(supabaseUrl, anonKey)
+    // Try to use admin API if service role key exists, otherwise use standard signup
+    let supabase: any
+    let authData: any
+    
+    if (serviceRoleKey) {
+      // Admin path (no rate limiting)
+      console.log('Using admin API for signup')
+      supabase = createClient(supabaseUrl, serviceRoleKey)
+      
+      const { data, error } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      })
+      
+      if (error) throw error
+      authData = { user: data.user, session: null }
+    } else {
+      // Standard path (may hit rate limits)
+      console.log('Using standard signup')
+      supabase = createClient(supabaseUrl, anonKey)
+      
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+      
+      if (error) throw error
+      authData = data
+    }
 
-    // Sign up
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-    })
-
-    if (signUpError) throw signUpError
     if (!authData.user) throw new Error('Signup failed')
 
     // Create company if name provided
@@ -38,7 +61,7 @@ export async function POST(request: Request) {
       user: authData.user,
       session: authData.session,
       companyId,
-      message: 'Signup successful. Please check your email to confirm your account.'
+      message: 'Signup successful!'
     }, { status: 201 })
   } catch (error: any) {
     console.error('Signup error:', error)
