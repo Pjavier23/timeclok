@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
 export async function POST(request: Request) {
   try {
@@ -11,87 +11,88 @@ export async function POST(request: Request) {
     // Validate
     if (!email || !password || !userType) {
       return Response.json(
-        { error: 'Missing required fields' },
+        { error: 'Email, password, and user type are required' },
         { status: 400 }
       )
     }
 
     if (userType === 'owner' && !companyName) {
       return Response.json(
-        { error: 'Company name required for owners' },
+        { error: 'Company name is required for owners' },
         { status: 400 }
       )
     }
 
-    // Create Supabase admin client (uses service role key to bypass RLS)
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
+    if (password.length < 6) {
+      return Response.json(
+        { error: 'Password must be at least 6 characters' },
+        { status: 400 }
+      )
+    }
+
+    // Create client with anon key
+    const supabase = createClient(supabaseUrl, anonKey)
+
+    // Sign up user
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : supabaseUrl,
       },
     })
 
-    // 1. Create user in auth.users
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    })
+    if (authError) {
+      // Handle specific errors
+      if (authError.message.includes('already registered')) {
+        return Response.json(
+          { error: 'This email is already registered. Please log in instead.' },
+          { status: 400 }
+        )
+      }
+      if (authError.message.includes('Password should be different')) {
+        return Response.json(
+          { error: 'Password is too simple. Use a stronger password.' },
+          { status: 400 }
+        )
+      }
+      throw authError
+    }
 
-    if (authError) throw authError
-    if (!authData.user) throw new Error('User creation failed')
+    if (!authData.user) {
+      throw new Error('User creation failed - no user returned')
+    }
 
     const userId = authData.user.id
 
-    // 2. Create user profile in public.users table
-    const { error: userError } = await supabaseAdmin
-      .from('users')
-      .insert([
-        {
-          id: userId,
-          email,
-          full_name: companyName || email.split('@')[0],
-          user_type: userType,
-          company_id: null,
-        },
-      ])
+    // Create session for immediate login
+    const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
-    if (userError) throw userError
-
-    // 3. If owner, create company
-    if (userType === 'owner') {
-      const { data: companyData, error: compError } = await supabaseAdmin
-        .from('companies')
-        .insert([
-          {
-            name: companyName,
-            owner_id: userId,
-          },
-        ])
-        .select()
-        .single()
-
-      if (compError) throw compError
-
-      // Update user with company_id
-      await supabaseAdmin
-        .from('users')
-        .update({ company_id: companyData.id })
-        .eq('id', userId)
+    if (sessionError) {
+      console.warn('Session creation warning:', sessionError)
+      // Continue anyway - user can login manually
     }
 
     return Response.json(
       {
         success: true,
-        user: { id: userId, email, userType },
-        message: 'Account created successfully',
+        user: {
+          id: userId,
+          email,
+          userType,
+        },
+        message: 'Account created successfully! You can now sign in.',
       },
       { status: 201 }
     )
   } catch (err: any) {
     console.error('Registration error:', err)
+    const errorMessage = err.message || err.error_description || 'Registration failed. Please try again.'
     return Response.json(
-      { error: err.message || 'Registration failed' },
+      { error: errorMessage },
       { status: 400 }
     )
   }
