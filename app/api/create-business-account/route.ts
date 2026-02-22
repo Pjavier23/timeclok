@@ -30,70 +30,33 @@ export async function POST(request: Request) {
       )
     }
 
-    // Step 1: Create user via Supabase Admin API (bypasses email rate limiting)
-    console.log('Creating auth user via Admin API:', email)
-    const adminApiUrl = `${supabaseUrl}/auth/v1/admin/users`
-    console.log('Admin URL:', adminApiUrl)
-    console.log('Service key from env:', serviceRoleKey ? `[${serviceRoleKey.length} chars, starts: ${serviceRoleKey.substring(0, 15)}...]` : 'EMPTY')
+    // Step 1: Create user via Supabase Admin SDK (uses service role key)
+    console.log('Creating auth user via Supabase Admin SDK:', email)
     
-    const headers = {
-      'Content-Type': 'application/json',
-      'apikey': serviceRoleKey,
-      'Authorization': `Bearer ${serviceRoleKey}`,
-    }
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
     
-    const createUserResponse = await fetch(adminApiUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        email,
-        password,
-        email_confirm: true, // Auto-confirm email
-      }),
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // Auto-confirm email
     })
 
-    const responseText = await createUserResponse.text()
-    console.log('Admin API response status:', createUserResponse.status)
-    console.log('Admin API response ok:', createUserResponse.ok)
-    console.log('Admin API response text:', responseText)
-
-    if (!createUserResponse.ok) {
-      let error
-      try {
-        error = JSON.parse(responseText)
-      } catch {
-        error = { message: responseText }
-      }
-      console.error('Admin API error:', error)
+    if (authError) {
+      console.error('Admin auth error:', authError)
       return Response.json(
-        {
-          error: error.message || error.hint || 'Failed to create user',
-          debug: {
-            serviceKeyExists: !!serviceRoleKey,
-            serviceKeyLength: serviceRoleKey.length,
-            serviceKeyStart: serviceRoleKey.substring(0, 20),
-            supabaseUrl,
-            adminUrl: adminApiUrl
-          }
-        },
+        { error: authError.message || 'Failed to create user' },
         { status: 400 }
       )
     }
 
-    let authData
-    try {
-      authData = JSON.parse(responseText)
-    } catch (e) {
+    if (!authData.user) {
       return Response.json(
-        {
-          error: 'Failed to parse API response',
-          debug: { responseText, parseError: String(e) }
-        },
+        { error: 'User creation returned no user data' },
         { status: 400 }
       )
     }
 
-    const userId = authData.id
+    const userId = authData.user.id
     console.log('Auth user created:', userId)
 
     // Step 2: Create user profile using Supabase client with service role key
