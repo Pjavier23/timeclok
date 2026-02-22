@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeClok - Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            font-weight: 900;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #00d9ff;
+            color: #000;
+        }
+        
+        .btn-primary:hover {
+            transform: scale(1.05);
+        }
+        
+        .btn-secondary {
+            background: #ff006e;
+            color: #fff;
+        }
+        
+        .btn-secondary:hover {
+            transform: scale(1.05);
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .page {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Landing Page */
+        .landing {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            text-align: center;
+        }
+        
+        .landing h2 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .landing p {
+            font-size: 1.25rem;
+            color: #aaa;
+            margin-bottom: 3rem;
+            max-width: 600px;
+        }
+        
+        .landing-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            width: 100%;
+            max-width: 600px;
+        }
+        
+        .landing button {
+            padding: 2rem 1rem;
+            font-size: 1.125rem;
+        }
+        
+        /* Dashboard */
+        .dashboard {
+            min-height: 100vh;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 1rem;
+        }
+        
+        .tab-btn {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: 2px solid transparent;
+            color: #999;
+            cursor: pointer;
+        }
+        
+        .tab-btn.active {
+            border-bottom-color: #00d9ff;
+            color: #00d9ff;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .card h3 {
+            margin-bottom: 1rem;
+            color: #00d9ff;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: rgba(0, 217, 255, 0.1);
+            border: 1px solid #00d9ff;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        
+        .stat-card .number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #00d9ff;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-card .label {
+            color: #aaa;
+            font-size: 0.875rem;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        th {
+            background: rgba(0,217,255,0.1);
+            color: #00d9ff;
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .badge-pending {
+            background: rgba(255, 165, 0, 0.3);
+            color: #ffa500;
+        }
+        
+        .badge-approved {
+            background: rgba(0, 217, 255, 0.3);
+            color: #00d9ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Landing Page -->
+        <div id="landing" class="page">
+            <header>
+                <h1>⏱️ TimeClok</h1>
+            </header>
+            
+            <div class="landing">
+                <h2>⏱️ TimeClok</h2>
+                <p>Employee time tracking & payroll management</p>
+                
+                <div class="landing-buttons">
+                    <button class="btn-primary" onclick="showDashboard('owner')">👔 Owner Demo</button>
+                    <button class="btn-secondary" onclick="showDashboard('employee')">👤 Employee Demo</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Owner Dashboard -->
+        <div id="owner-dashboard" class="page hidden">
+            <header>
+                <h1>⏱️ TimeClok Owner Dashboard</h1>
+                <div class="nav-buttons">
+                    <button class="btn-secondary" onclick="goHome()">← Back</button>
+                </div>
+            </header>
+            
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('owner', 'overview')">Overview</button>
+                <button class="tab-btn" onclick="switchTab('owner', 'employees')">Employees</button>
+                <button class="tab-btn" onclick="switchTab('owner', 'payroll')">Payroll</button>
+                <button class="tab-btn" onclick="switchTab('owner', 'projects')">Projects</button>
+            </div>
+            
+            <!-- Overview Tab -->
+            <div id="owner-overview" class="tab-content active">
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="number">2</div>
+                        <div class="label">Active Employees</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">$1,320</div>
+                        <div class="label">Pending Payroll</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">3</div>
+                        <div class="label">Active Projects</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">Demo Company</div>
+                        <div class="label">Organization</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Employees Tab -->
+            <div id="owner-employees" class="tab-content">
+                <div class="card">
+                    <h3>Team Members</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Hourly Rate</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>John Doe</td>
+                                <td>john@example.com</td>
+                                <td>$25/hr</td>
+                                <td><span class="badge badge-approved">Active</span></td>
+                            </tr>
+                            <tr>
+                                <td>Jane Smith</td>
+                                <td>jane@example.com</td>
+                                <td>$30/hr</td>
+                                <td><span class="badge badge-approved">Active</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Payroll Tab -->
+            <div id="owner-payroll" class="tab-content">
+                <div class="card">
+                    <h3>Payroll Records</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>John Doe</td>
+                                <td>$600</td>
+                                <td><span class="badge badge-pending">Pending</span></td>
+                                <td><button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">Approve</button></td>
+                            </tr>
+                            <tr>
+                                <td>Jane Smith</td>
+                                <td>$720</td>
+                                <td><span class="badge badge-approved">Approved</span></td>
+                                <td><button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.875rem;">View</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Projects Tab -->
+            <div id="owner-projects" class="tab-content">
+                <div class="card">
+                    <h3>Active Projects</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Project</th>
+                                <th>Status</th>
+                                <th>Assigned To</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Website Redesign</td>
+                                <td><span class="badge badge-approved">Active</span></td>
+                                <td>John Doe, Jane Smith</td>
+                            </tr>
+                            <tr>
+                                <td>Mobile App</td>
+                                <td><span class="badge badge-approved">Active</span></td>
+                                <td>Jane Smith</td>
+                            </tr>
+                            <tr>
+                                <td>Backend API</td>
+                                <td><span class="badge badge-pending">On Hold</span></td>
+                                <td>John Doe</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Employee Dashboard -->
+        <div id="employee-dashboard" class="page hidden">
+            <header>
+                <h1>⏱️ TimeClok Employee Dashboard</h1>
+                <div class="nav-buttons">
+                    <button class="btn-secondary" onclick="goHome()">← Back</button>
+                </div>
+            </header>
+            
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('employee', 'clock')">Clock In/Out</button>
+                <button class="tab-btn" onclick="switchTab('employee', 'earnings')">Earnings</button>
+                <button class="tab-btn" onclick="switchTab('employee', 'profile')">Profile</button>
+            </div>
+            
+            <!-- Clock Tab -->
+            <div id="employee-clock" class="tab-content active">
+                <div class="card">
+                    <h3>Time Tracking</h3>
+                    <div style="text-align: center; padding: 2rem;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🕐</div>
+                        <div style="font-size: 1.5rem; margin-bottom: 1rem;">Current Time</div>
+                        <button class="btn-primary" style="padding: 1rem 2rem; font-size: 1rem;">⏱️ Clock In</button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>Time Entries</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>In</th>
+                                <th>Out</th>
+                                <th>Hours</th>
+                                <th>Earned</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Feb 22, 2026</td>
+                                <td>9:00 AM</td>
+                                <td>1:00 PM</td>
+                                <td>4h</td>
+                                <td>$100</td>
+                            </tr>
+                            <tr>
+                                <td>Feb 21, 2026</td>
+                                <td>8:00 AM</td>
+                                <td>4:00 PM</td>
+                                <td>8h</td>
+                                <td>$200</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Earnings Tab -->
+            <div id="employee-earnings" class="tab-content">
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="number">$300</div>
+                        <div class="label">Total Earned</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">12h</div>
+                        <div class="label">Hours Worked</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">$25/hr</div>
+                        <div class="label">Hourly Rate</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>Earnings Summary</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Period</th>
+                                <th>Hours</th>
+                                <th>Rate</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Week of Feb 17</td>
+                                <td>12h</td>
+                                <td>$25/hr</td>
+                                <td>$300</td>
+                                <td><span class="badge badge-pending">Pending</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Profile Tab -->
+            <div id="employee-profile" class="tab-content">
+                <div class="card">
+                    <h3>Profile Information</h3>
+                    <p><strong>Name:</strong> John Doe</p>
+                    <p><strong>Email:</strong> john@example.com</p>
+                    <p><strong>Position:</strong> Contractor</p>
+                    <p><strong>Hourly Rate:</strong> $25/hr</p>
+                    <p><strong>Company:</strong> Demo Company</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function showDashboard(type) {
+            document.getElementById('landing').classList.add('hidden');
+            
+            if (type === 'owner') {
+                document.getElementById('owner-dashboard').classList.remove('hidden');
+            } else {
+                document.getElementById('employee-dashboard').classList.remove('hidden');
+            }
+        }
+        
+        function goHome() {
+            document.getElementById('landing').classList.remove('hidden');
+            document.getElementById('owner-dashboard').classList.add('hidden');
+            document.getElementById('employee-dashboard').classList.add('hidden');
+        }
+        
+        function switchTab(dashboard, tabName) {
+            const prefix = dashboard === 'owner' ? 'owner-' : 'employee-';
+            
+            // Hide all tabs
+            document.querySelectorAll(`#${prefix}* [id^="${prefix}"]`).forEach(el => {
+                if (el.classList.contains('tab-content')) {
+                    el.classList.remove('active');
+                }
+            });
+            
+            // Deactivate all buttons
+            document.querySelectorAll(`#${dashboard}-dashboard .tab-btn`).forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            const tabElement = document.getElementById(`${prefix}${tabName}`);
+            if (tabElement) {
+                tabElement.classList.add('active');
+            }
+            
+            // Activate clicked button
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
