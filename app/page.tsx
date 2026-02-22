@@ -1,11 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function Home() {
   const router = useRouter()
   const [lang, setLang] = useState<'en' | 'es'>('en')
+
+  useEffect(() => {
+    // Get saved language preference
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('timeclok_lang') : null
+    if (saved === 'es' || saved === 'en') {
+      setLang(saved)
+    }
+  }, [])
+
+  const handleLangChange = (newLang: 'en' | 'es') => {
+    setLang(newLang)
+    localStorage.setItem('timeclok_lang', newLang)
+  }
 
   return (
     <div style={{
@@ -22,7 +35,7 @@ export default function Home() {
         display: 'flex',
         gap: '0.5rem'
       }}>
-        <button onClick={() => setLang('en')} style={{
+        <button onClick={() => handleLangChange('en')} style={{
           padding: '0.5rem 1rem',
           background: lang === 'en' ? '#00d9ff' : 'rgba(255,255,255,0.1)',
           color: lang === 'en' ? '#000' : '#fff',
@@ -31,7 +44,7 @@ export default function Home() {
           cursor: 'pointer',
           fontWeight: '600'
         }}>English</button>
-        <button onClick={() => setLang('es')} style={{
+        <button onClick={() => handleLangChange('es')} style={{
           padding: '0.5rem 1rem',
           background: lang === 'es' ? '#ff006e' : 'rgba(255,255,255,0.1)',
           color: '#fff',
