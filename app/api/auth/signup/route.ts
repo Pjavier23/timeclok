@@ -8,22 +8,15 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Use service role key to bypass rate limiting (from environment variable)
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!serviceRoleKey) {
-      return Response.json({ error: 'Server configuration error: missing auth credentials' }, { status: 500 })
-    }
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    if (!supabaseUrl) {
-      return Response.json({ error: 'Server configuration error: missing Supabase URL' }, { status: 500 })
-    }
-    const supabase = createClient(supabaseUrl, serviceRoleKey)
+    // Use the Supabase client with anon key - works with Pro tier without rate limits
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tkljofxcndnwqyqrtrnx.supabase.co'
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_DStZYSJl03dZY_k-aIWAJA_UJC28eh_'
+    const supabase = createClient(supabaseUrl, anonKey)
 
-    // Create auth user
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    // Create auth user using signUp (works with Pro tier)
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      email_confirm: true,
     })
 
     if (authError) throw authError
