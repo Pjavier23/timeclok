@@ -23,19 +23,14 @@ export async function POST(request: Request) {
       )
     }
 
-    // Use anon key for signup (works without rate limits after Pro upgrade)
+    // Use anon key for signup
     const supabase = createClient(supabaseUrl, anonKey)
 
-    // Step 1: Sign up user (this works with Pro tier)
+    // Step 1: Sign up user
+    console.log('Creating auth user:', email)
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          company_name: companyName,
-          owner_name: ownerName,
-        },
-      },
     })
 
     if (authError) {
@@ -46,20 +41,67 @@ export async function POST(request: Request) {
       throw new Error('Account creation failed')
     }
 
-    // Step 2: Sign in immediately to get session
-    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+    const userId = authData.user.id
+    console.log('Auth user created:', userId)
+
+    // Step 2: Sign in to get session
+    console.log('Signing in user')
+    const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
-    if (loginError) {
-      console.warn('Login after signup:', loginError)
-      // Continue anyway - user can login manually
+    if (sessionError) {
+      console.warn('Session error:', sessionError)
+      // Continue anyway
     }
 
-    const userId = authData.user.id
+    // Step 3: Create user profile with authenticated session
+    if (sessionData?.session) {
+      console.log('Creating user profile')
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert([
+          {
+            id: userId,
+            email,
+            full_name: ownerName || companyName,
+            user_type: 'owner',
+            company_id: null,
+          },
+        ])
+        .select()
 
-    // Return success
+      if (profileError) {
+        console.warn('Profile creation warning:', profileError.message)
+        // Don't fail if profile exists
+        if (!profileError.message.includes('duplicate')) {
+          throw profileError
+        }
+      }
+
+      // Step 4: Create company
+      console.log('Creating company')
+      const { data: companyData, error: compError } = await supabase
+        .from('companies')
+        .insert([{ name: companyName, owner_id: userId }])
+        .select()
+        .single()
+
+      if (compError && !compError.message.includes('duplicate')) {
+        throw new Error('Failed to create company: ' + compError.message)
+      }
+
+      // Update user with company_id if company was created
+      if (companyData?.id) {
+        await supabase
+          .from('users')
+          .update({ company_id: companyData.id })
+          .eq('id', userId)
+      }
+    }
+
+    // Success
     return Response.json(
       {
         success: true,
@@ -69,14 +111,15 @@ export async function POST(request: Request) {
           password,
           companyName,
           ownerName: ownerName || companyName,
+          userId,
           loginUrl: 'https://timeclok.vercel.app/auth/login',
         },
         instructions: [
-          `Go to https://timeclok.vercel.app/auth/login`,
-          `Enter email: ${email}`,
-          `Enter password: ${password}`,
-          'You will see the Owner Dashboard',
-          'Click "Add Employee" to invite your team',
+          `1. Go to https://timeclok.vercel.app/auth/login`,
+          `2. Enter email: ${email}`,
+          `3. Enter password: ${password}`,
+          '4. Click Log In',
+          '5. You will see your Owner Dashboard',
         ],
       },
       { status: 201 }
