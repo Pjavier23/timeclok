@@ -116,12 +116,12 @@ export default function OwnerDashboard() {
       const { data: companyData, error: compError } = await supabase
         .from('companies')
         .select('*')
-        .eq('owner_id', userId)
+        .eq('owner_id', userIdOrEmail)
         .single()
       
       if (compError && compError.code !== 'PGRST116') throw compError
       
-      const companyId = companyData?.id || userId
+      const companyId = companyData?.id || userIdOrEmail
       
       // Fetch employees for this owner's company
       const { data: employeesData, error: empError } = await supabase
