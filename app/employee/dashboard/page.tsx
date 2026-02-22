@@ -27,11 +27,12 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     const initDashboard = async () => {
       try {
-        // Check for demo mode
+        // Check for demo mode FIRST before any auth
         const isDemo = localStorage.getItem('demo_mode') === 'true'
         if (isDemo) {
-          setUser({ id: 'demo-emp', email: localStorage.getItem('user_email') || 'john@timeclok.test' })
-          setEmployee({ hourly_rate: 25, employee_type: 'contractor' })
+          const demoEmail = localStorage.getItem('user_email') || 'john@timeclok.test'
+          setUser({ id: 'demo-emp', email: demoEmail })
+          setEmployee({ hourly_rate: 25, employee_type: 'contractor', id: 'demo-emp-1' })
           setTimeEntries([
             {
               id: '1',
@@ -51,6 +52,7 @@ export default function EmployeeDashboard() {
             }
           ])
           setLoading(false)
+          setIsClockedIn(false)
           return
         }
 

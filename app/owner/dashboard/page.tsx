@@ -24,10 +24,39 @@ export default function OwnerDashboard() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      // Check for demo mode
+      // Check for demo mode FIRST
       const isDemo = localStorage.getItem('demo_mode') === 'true'
       if (isDemo) {
         setUser({ id: 'demo', email: localStorage.getItem('user_email') || 'demo@timeclok.test' })
+        // Set demo data immediately
+        setEmployees([
+          {
+            id: '1',
+            user_id: 'emp1',
+            hourly_rate: 25,
+            users: { email: 'john@example.com', full_name: 'John Doe' }
+          },
+          {
+            id: '2',
+            user_id: 'emp2',
+            hourly_rate: 30,
+            users: { email: 'jane@example.com', full_name: 'Jane Smith' }
+          }
+        ])
+        setPayroll([
+          {
+            id: 'pay1',
+            total_amount: 600,
+            status: 'pending',
+            employees: { users: { full_name: 'John Doe' } }
+          },
+          {
+            id: 'pay2',
+            total_amount: 720,
+            status: 'approved',
+            employees: { users: { full_name: 'Jane Smith' } }
+          }
+        ])
         setLoading(false)
         return
       }
