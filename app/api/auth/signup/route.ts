@@ -28,7 +28,20 @@ export async function POST(request: Request) {
     let companyData = null
 
     if (userType === 'owner') {
-      // Create company for owner
+      // Create user profile for owner FIRST (before company, to avoid FK constraint)
+      const { error: userError } = await supabase
+        .from('users')
+        .insert([{
+          id: userId,
+          email,
+          full_name: companyName + ' Owner',
+          user_type: 'owner',
+          company_id: null, // Will update after company creation
+        }])
+
+      if (userError && userError.code !== '23505') throw userError
+
+      // Now create company for owner
       const { data: newCompanyData, error: compError } = await supabase
         .from('companies')
         .insert([{ name: companyName, owner_id: userId }])
@@ -38,18 +51,13 @@ export async function POST(request: Request) {
       if (compError) throw compError
       companyData = newCompanyData
 
-      // Create user profile for owner
-      const { error: userError } = await supabase
+      // Update user profile with company_id
+      const { error: updateError } = await supabase
         .from('users')
-        .insert([{
-          id: userId,
-          email,
-          full_name: companyName + ' Owner',
-          user_type: 'owner',
-          company_id: companyData.id,
-        }])
+        .update({ company_id: companyData.id })
+        .eq('id', userId)
 
-      if (userError && userError.code !== '23505') throw userError
+      if (updateError) throw updateError
     } else {
       // Create user profile for employee
       const { error: userError } = await supabase
