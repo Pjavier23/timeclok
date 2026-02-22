@@ -11,14 +11,14 @@ export async function POST(request: Request) {
     // Validate
     if (!email || !password || !userType) {
       return Response.json(
-        { error: 'Email, password, and user type are required' },
+        { error: 'Email, password, and user type required' },
         { status: 400 }
       )
     }
 
     if (userType === 'owner' && !companyName) {
       return Response.json(
-        { error: 'Company name is required for owners' },
+        { error: 'Company name required for owners' },
         { status: 400 }
       )
     }
@@ -30,69 +30,63 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create client with anon key
-    const supabase = createClient(supabaseUrl, anonKey)
-
-    // Sign up user
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : supabaseUrl,
+    // Create Supabase client
+    const supabase = createClient(supabaseUrl, anonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
       },
     })
 
-    if (authError) {
-      // Handle specific errors
-      if (authError.message.includes('already registered')) {
-        return Response.json(
-          { error: 'This email is already registered. Please log in instead.' },
-          { status: 400 }
-        )
-      }
-      if (authError.message.includes('Password should be different')) {
-        return Response.json(
-          { error: 'Password is too simple. Use a stronger password.' },
-          { status: 400 }
-        )
-      }
-      throw authError
-    }
-
-    if (!authData.user) {
-      throw new Error('User creation failed - no user returned')
-    }
-
-    const userId = authData.user.id
-
-    // Create session for immediate login
-    const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
+    // Sign up - this creates auth.users record
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
     })
 
-    if (sessionError) {
-      console.warn('Session creation warning:', sessionError)
-      // Continue anyway - user can login manually
+    if (signUpError) {
+      // Parse Supabase error messages
+      let errorMsg = signUpError.message
+
+      if (errorMsg.includes('already registered')) {
+        errorMsg = 'Email already registered. Please log in.'
+      } else if (errorMsg.includes('rate limit')) {
+        errorMsg = 'Too many signup attempts. Please wait a few minutes.'
+      } else if (errorMsg.includes('password')) {
+        errorMsg = 'Password too weak. Use uppercase, numbers, and symbols.'
+      }
+
+      return Response.json(
+        { error: errorMsg },
+        { status: 400 }
+      )
     }
 
+    if (!data.user) {
+      return Response.json(
+        { error: 'Account creation failed' },
+        { status: 400 }
+      )
+    }
+
+    // Return success - dashboard will handle creating user profile on first visit
     return Response.json(
       {
         success: true,
         user: {
-          id: userId,
-          email,
+          id: data.user.id,
+          email: data.user.email,
           userType,
+          companyName,
         },
-        message: 'Account created successfully! You can now sign in.',
+        message: 'Account created! Check your email to confirm.',
       },
       { status: 201 }
     )
   } catch (err: any) {
-    console.error('Registration error:', err)
-    const errorMessage = err.message || err.error_description || 'Registration failed. Please try again.'
+    console.error('Signup error:', err)
     return Response.json(
-      { error: errorMessage },
+      { error: 'Signup failed. Please try again.' },
       { status: 400 }
     )
   }

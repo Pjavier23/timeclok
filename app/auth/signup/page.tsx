@@ -52,17 +52,13 @@ export default function SignUp() {
         throw new Error(data.error || 'Signup failed')
       }
 
-      // Success! Clear demo mode and redirect
+      // Success! Redirect to login
       localStorage.removeItem('demo_mode')
       
-      // Wait a moment then redirect
+      // Show success message
       setTimeout(() => {
-        if (userType === 'owner') {
-          router.push('/owner/dashboard')
-        } else {
-          router.push('/employee/dashboard')
-        }
-      }, 500)
+        router.push('/auth/login?email=' + encodeURIComponent(email))
+      }, 1000)
       
     } catch (err: any) {
       const errorMsg = err.message || 'Signup failed. Please try again.'
