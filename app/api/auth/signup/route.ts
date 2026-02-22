@@ -8,11 +8,16 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Use service role key to bypass rate limiting
-    const supabase = createClient(
-      'https://tkljofxcndnwqyqrtrnx.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrbGpvZnhjbmRud3l5cXJ0cm54Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTc2NzMxNSwiZXhwIjoyMDg3MzQzMzE1fQ.I07_YtatFR6sZfDRmjtwLTaMb83w-tRRAKMknoFXQFg'
-    )
+    // Use service role key to bypass rate limiting (from environment variable)
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!serviceRoleKey) {
+      return Response.json({ error: 'Server configuration error: missing auth credentials' }, { status: 500 })
+    }
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!supabaseUrl) {
+      return Response.json({ error: 'Server configuration error: missing Supabase URL' }, { status: 500 })
+    }
+    const supabase = createClient(supabaseUrl, serviceRoleKey)
 
     // Create auth user
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
