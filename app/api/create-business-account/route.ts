@@ -55,33 +55,33 @@ export async function POST(request: Request) {
 
     const responseText = await createUserResponse.text()
     console.log('Admin API response status:', createUserResponse.status)
-    console.log('Admin API response:', responseText)
+    console.log('Admin API response ok:', createUserResponse.ok)
+    console.log('Admin API response text:', responseText)
 
-    if (!createUserResponse.ok) {
-      let error
-      try {
-        error = JSON.parse(responseText)
-      } catch {
-        error = { message: responseText }
-      }
-      console.error('Admin API error:', error)
-      return Response.json(
-        { 
-          error: error.message || 'Failed to create user',
-          debug: {
-            status: createUserResponse.status,
-            fullResponse: error
-          }
-        },
-        { status: 400 }
-      )
-    }
+    // Return the ACTUAL API response so we can debug what's happening
+    return Response.json(
+      { 
+        debug: {
+          status: createUserResponse.status,
+          ok: createUserResponse.ok,
+          response: responseText,
+          headerAuth: `Bearer [${serviceRoleKey.length} chars]`
+        }
+      },
+      { status: 200 }
+    )
 
     let authData
     try {
       authData = JSON.parse(responseText)
-    } catch {
-      throw new Error('Invalid JSON response: ' + responseText)
+    } catch (e) {
+      return Response.json(
+        {
+          error: 'Failed to parse API response',
+          debug: { responseText, parseError: String(e) }
+        },
+        { status: 400 }
+      )
     }
 
     const userId = authData.id
