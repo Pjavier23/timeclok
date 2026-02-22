@@ -25,16 +25,18 @@ export async function POST(request: Request) {
     if (!authData.user) throw new Error('User creation failed')
 
     const userId = authData.user.id
+    let companyData = null
 
     if (userType === 'owner') {
       // Create company for owner
-      const { data: companyData, error: compError } = await supabase
+      const { data: newCompanyData, error: compError } = await supabase
         .from('companies')
         .insert([{ name: companyName, owner_id: userId }])
         .select()
         .single()
 
       if (compError) throw compError
+      companyData = newCompanyData
 
       // Create user profile for owner
       const { error: userError } = await supabase
