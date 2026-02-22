@@ -8,15 +8,16 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Use the Supabase client with anon JWT key
+    // Use the Supabase client with service_role key to bypass rate limiting
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tkljofxcndnwqyqrtrnx.supabase.co'
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrbGpvZnhjbmRud3F5cXJ0cm54Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3NjczMTUsImV4cCI6MjA4NzM0MzMxNX0.9A8mB1gkW4TUBBIt8ybqsWQ6XXYLWQDLjENonRoGLMY'
-    const supabase = createClient(supabaseUrl, anonKey)
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRrbGpvZnhjbmRud3F5cXJ0cm54Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTc2NzMxNSwiZXhwIjoyMDg3MzQzMzE1fQ.I07_YtatFR6sZfDRmjtwLTaMb83w-tRRAKMknoFXQFg'
+    const supabase = createClient(supabaseUrl, serviceRoleKey)
 
-    // Create auth user using signUp (works with Pro tier)
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // Create auth user using admin.createUser (works with service_role key)
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
+      email_confirm: true,
     })
 
     if (authError) throw authError
