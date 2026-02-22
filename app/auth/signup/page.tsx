@@ -26,72 +26,36 @@ export default function SignUp() {
         throw new Error('Email and password are required')
       }
       if (userType === 'owner' && !companyName) {
-        throw new Error('Company name is required')
+        throw new Error('Company name is required for owners')
       }
       if (password.length < 6) {
         throw new Error('Password must be at least 6 characters')
       }
 
-      // Sign up with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password
+      // Call our API endpoint which handles everything with service role key
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          userType,
+          companyName: companyName || undefined,
+        }),
       })
 
-      if (authError) {
-        if (authError.message.includes('already registered')) {
-          throw new Error('This email is already registered. Please log in or use a different email.')
-        }
-        throw authError
-      }
-      if (!authData.user) throw new Error('Account creation failed')
+      const data = await response.json()
 
-      // Wait a moment for auth to settle
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      // Create user profile
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert([{
-          id: authData.user.id,
-          email,
-          full_name: companyName || email.split('@')[0],
-          user_type: userType,
-          company_id: null
-        }])
-
-      if (profileError) {
-        console.error('Profile error:', profileError)
-        if (profileError.code !== '23505') throw profileError
+      if (!response.ok) {
+        throw new Error(data.error || 'Signup failed')
       }
 
-      // If owner, create company
-      if (userType === 'owner') {
-        const { data: compData, error: compError } = await supabase
-          .from('companies')
-          .insert([{
-            name: companyName,
-            owner_id: authData.user.id
-          }])
-          .select()
-          .single()
-
-        if (compError) {
-          console.error('Company error:', compError)
-          throw new Error(`Failed to create company: ${compError.message}`)
-        }
-
-        // Update user with company_id
-        await supabase
-          .from('users')
-          .update({ company_id: compData.id })
-          .eq('id', authData.user.id)
-      }
-
-      // Set demo mode off and redirect
+      // Success! Clear demo mode and redirect
       localStorage.removeItem('demo_mode')
       
-      // Redirect to dashboard
+      // Wait a moment then redirect
       setTimeout(() => {
         if (userType === 'owner') {
           router.push('/owner/dashboard')
@@ -101,7 +65,7 @@ export default function SignUp() {
       }, 500)
       
     } catch (err: any) {
-      const errorMsg = err.message || err.error_description || 'Signup failed. Please try again.'
+      const errorMsg = err.message || 'Signup failed. Please try again.'
       setError(errorMsg)
       console.error('Signup error:', err)
     } finally {
