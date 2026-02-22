@@ -3,6 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
+import { 
+  clockInEmailTemplate, 
+  clockOutEmailTemplate, 
+  sendEmailNotification 
+} from '../../lib/email'
+import { generateEarningsReport, downloadCSV } from '../../lib/export'
 
 export default function EmployeeDashboard() {
   const router = useRouter()
@@ -363,7 +369,26 @@ export default function EmployeeDashboard() {
           {/* Earnings Tab */}
           {activeTab === 'earnings' && (
             <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '2rem' }}>Your Earnings</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>Your Earnings</h2>
+                <button
+                  onClick={() => {
+                    const report = generateEarningsReport(user?.email || 'Employee', timeEntries, employee?.hourly_rate || 0)
+                    downloadCSV(report, `earnings-report-${new Date().toISOString().split('T')[0]}.csv`)
+                  }}
+                  style={{
+                    background: '#00d9ff',
+                    color: '#000',
+                    border: 'none',
+                    padding: '0.75rem 1.5rem',
+                    borderRadius: '0.5rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                  }}
+                >
+                  📥 Export Report
+                </button>
+              </div>
 
               {/* Stats */}
               <div style={{

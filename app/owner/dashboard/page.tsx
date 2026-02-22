@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
+import { generateW2CSV, downloadCSV } from '../../lib/export'
 
 export default function OwnerDashboard() {
   const router = useRouter()
@@ -242,7 +243,29 @@ export default function OwnerDashboard() {
           {/* Payroll Tab */}
           {activeTab === 'payroll' && (
             <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' }}>Payroll Management</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>Payroll Management</h2>
+                <button
+                  onClick={() => {
+                    const csv = 'Employee,Hours,Rate,Total,Status\n' + 
+                      payroll.map(p => 
+                        `${p.employees?.users?.full_name || 'Unknown'},${p.total_hours || 0},$${p.hourly_rate || 0},$${p.total_amount?.toFixed(2) || 0},${p.status}`
+                      ).join('\n')
+                    downloadCSV(csv, `payroll-export-${new Date().toISOString().split('T')[0]}.csv`)
+                  }}
+                  style={{
+                    background: '#ffdd00',
+                    color: '#000',
+                    border: 'none',
+                    padding: '0.75rem 1.5rem',
+                    borderRadius: '0.5rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                  }}
+                >
+                  📋 Export Payroll
+                </button>
+              </div>
               {payroll.length === 0 ? (
                 <div style={{ color: '#999', textAlign: 'center', padding: '2rem' }}>No payroll records yet.</div>
               ) : (
