@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tkljofxcndnwqyqrtrnx.supabase.co'
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tkljofxcndnwqyqrtrnx.supabase.co').trim()
+const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
 
 // Pre-shared admin token
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'timeclok-setup-2024'
@@ -30,15 +30,22 @@ export async function POST(request: Request) {
     console.log('- Anon Key:', anonKey ? `[${anonKey.length} chars]` : 'MISSING')
     console.log('- Service Key:', serviceRoleKey ? `[${serviceRoleKey.length} chars]` : 'MISSING')
 
-    // Step 1: Try standard signup first to test connectivity
-    console.log('Attempting user creation:', email)
+    // Step 1: Create user via admin API (service role bypasses rate limits)
+    console.log('Attempting user creation via admin API:', email)
     
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-    const supabaseStandard = createClient(supabaseUrl, supabaseAnonKey)
+    if (!serviceRoleKey) {
+      return Response.json(
+        { error: 'Service role key not configured' },
+        { status: 500 }
+      )
+    }
     
-    const { data: authData, error: authError } = await supabaseStandard.auth.signUp({
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
+    
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
+      email_confirm: true,
     })
 
     if (authError) {
@@ -68,8 +75,8 @@ export async function POST(request: Request) {
     const userId = authData.user.id
     console.log('Auth user created:', userId)
 
-    // Step 2: Create user profile
-    const supabase = supabaseStandard
+    // Step 2: Create user profile using admin client
+    const supabase = supabaseAdmin
     
     console.log('Creating user profile')
     const { error: profileError } = await supabase
