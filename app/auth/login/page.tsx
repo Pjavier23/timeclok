@@ -1,12 +1,11 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
 
 function LoginForm() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const supabase = createClient()
   
   const [email, setEmail] = useState('')
@@ -14,54 +13,28 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    const emailParam = searchParams.get('email')
-    if (emailParam) {
-      setEmail(emailParam)
-    }
-  }, [searchParams])
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
     try {
+      // Authenticate with Supabase
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password
       })
 
-      if (signInError) {
-        console.error('SignIn error:', signInError)
-        throw signInError
-      }
-      
+      if (signInError) throw signInError
       if (!data.user) throw new Error('Login failed')
 
-      // Get user type to redirect to correct dashboard
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('user_type')
-        .eq('id', data.user.id)
-        .single()
+      // Small delay to ensure session is set
+      await new Promise(r => setTimeout(r, 500))
 
-      if (userError) {
-        // User profile doesn't exist yet, still redirect to dashboard
-        router.push('/owner/dashboard')
-        return
-      }
-
-      // Redirect based on user type
-      if (userData.user_type === 'owner') {
-        router.push('/owner/dashboard')
-      } else {
-        router.push('/employee/dashboard')
-      }
+      // Redirect to dashboard
+      router.push('/owner/dashboard')
     } catch (err: any) {
       setError(err.message || 'Login failed')
-      console.error(err)
-    } finally {
       setLoading(false)
     }
   }
