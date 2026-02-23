@@ -17,22 +17,19 @@ export async function POST(request: Request) {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey)
 
-    // Create sample employees
+    // Create sample employees (just need company_id, not user_id for sample data)
     const sampleEmployees = [
       {
-        user_id: `emp-${Date.now()}-1`,
         company_id: companyId,
         hourly_rate: 25.00,
         employee_type: 'w2',
       },
       {
-        user_id: `emp-${Date.now()}-2`,
         company_id: companyId,
         hourly_rate: 30.00,
         employee_type: '1099',
       },
       {
-        user_id: `emp-${Date.now()}-3`,
         company_id: companyId,
         hourly_rate: 22.50,
         employee_type: 'w2',
