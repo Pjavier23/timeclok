@@ -81,6 +81,19 @@ export const translations = {
     setupInstructions: 'Setup Instructions',
     goToDashboard: '⚡ Go to Dashboard (Instant Login)',
     manualLogin: 'Manual Login',
+    
+    // Additional
+    working: 'Working...',
+    sending: 'Sending...',
+    cancel: 'Cancel',
+    save: 'Save',
+    delete: 'Delete',
+    edit: 'Edit',
+    back: 'Back',
+    next: 'Next',
+    done: 'Done',
+    success: 'Success',
+    noData: 'No data',
   },
   es: {
     // Auth
@@ -164,6 +177,19 @@ export const translations = {
     setupInstructions: 'Instrucciones de Configuración',
     goToDashboard: '⚡ Ir al Panel (Inicio Instantáneo)',
     manualLogin: 'Inicio de Sesión Manual',
+    
+    // Additional
+    working: 'Procesando...',
+    sending: 'Enviando...',
+    cancel: 'Cancelar',
+    save: 'Guardar',
+    delete: 'Eliminar',
+    edit: 'Editar',
+    back: 'Atrás',
+    next: 'Siguiente',
+    done: 'Listo',
+    success: 'Éxito',
+    noData: 'Sin datos',
   },
 }
 
