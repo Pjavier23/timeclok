@@ -3,214 +3,255 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '../lib/supabase'
-import { decodeInviteToken, acceptInvite } from '../lib/invites'
 
-function JoinPageContent() {
+function JoinContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
-
-  const [token, setToken] = useState('')
-  const [inviteInfo, setInviteInfo] = useState<any>(null)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
+  
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [step, setStep] = useState<'verify' | 'signup'>('verify')
+  const [companyId, setCompanyId] = useState<string | null>(null)
+  const [companyName, setCompanyName] = useState('')
+  const [email, setEmail] = useState(searchParams.get('email') || '')
+  const [password, setPassword] = useState('')
+  const [hourlyRate, setHourlyRate] = useState('25')
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    const inviteToken = searchParams.get('token')
-    if (!inviteToken) {
-      setError('No invite token provided')
-      return
-    }
-
-    setToken(inviteToken)
-    const decoded = decodeInviteToken(inviteToken)
-    if (decoded) {
-      setEmail(decoded.email)
-      setInviteInfo(decoded)
-      setStep('signup')
+    const cid = searchParams.get('company')
+    setCompanyId(cid)
+    
+    if (cid) {
+      fetchCompanyName(cid)
     } else {
-      setError('Invalid or expired invite token')
+      setError('Invalid invite link')
+      setLoading(false)
     }
   }, [searchParams])
 
-  const handleSignup = async () => {
-    if (!password || password.length < 6) {
-      setError('Password must be at least 6 characters')
-      return
-    }
-
-    setLoading(true)
-    setError('')
-
+  const fetchCompanyName = async (cid: string) => {
     try {
-      // Sign up with Supabase Auth
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-      })
-
-      if (signUpError) throw signUpError
-      if (!data.user) throw new Error('Signup failed')
-
-      // Accept the invite
-      const { success, error: inviteError } = await acceptInvite(token, data.user.id, password)
-      if (!success) throw new Error(inviteError)
-
-      // Redirect to employee dashboard
-      router.push('/employee/dashboard')
-    } catch (err: any) {
-      setError(err.message || 'Failed to join')
-    } finally {
+      const { data: company } = await supabase
+        .from('companies')
+        .select('name')
+        .eq('id', cid)
+        .single()
+      
+      if (company) {
+        setCompanyName(company.name)
+      }
+      setLoading(false)
+    } catch (err) {
+      setError('Company not found')
       setLoading(false)
     }
   }
 
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+    setError('')
+
+    try {
+      if (!email || !password) throw new Error('Email and password required')
+      if (!companyId) throw new Error('Company not found')
+
+      // Sign up
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+
+      if (signupError) throw signupError
+      if (!data.user) throw new Error('Signup failed')
+
+      const userId = data.user.id
+
+      // Create user profile
+      await supabase
+        .from('users')
+        .insert([{
+          id: userId,
+          email,
+          full_name: email.split('@')[0],
+          user_type: 'employee',
+          company_id: companyId,
+        }])
+
+      // Create employee record
+      await supabase
+        .from('employees')
+        .insert([{
+          user_id: userId,
+          company_id: companyId,
+          hourly_rate: parseFloat(hourlyRate),
+          employee_type: 'w2',
+        }])
+
+      // Redirect to login
+      router.push('/auth/login?email=' + encodeURIComponent(email))
+    } catch (err: any) {
+      setError(err.message || 'Signup failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: '#0a0a0a',
+        color: '#fff',
+      }}>
+        Loading...
+      </div>
+    )
+  }
+
   return (
     <div style={{
+      background: '#0a0a0a',
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)',
-      color: '#fff',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '2rem',
+      color: '#fff',
+      fontFamily: 'system-ui'
     }}>
       <div style={{
-        maxWidth: '500px',
-        width: '100%',
-        background: 'rgba(255, 255, 255, 0.05)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        padding: '2rem',
+        background: 'rgba(255,255,255,0.05)',
+        border: '1px solid rgba(255,255,255,0.1)',
         borderRadius: '1rem',
-        backdropFilter: 'blur(10px)',
+        padding: '2rem',
+        maxWidth: '500px',
+        width: '100%'
       }}>
-        {step === 'verify' ? (
-          <div style={{ textAlign: 'center' }}>
-            <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>⏳ Verifying Invite...</h1>
-            <div style={{ color: '#999' }}>Please wait...</div>
-          </div>
-        ) : inviteInfo ? (
-          <div>
-            <h1 style={{ fontSize: '2rem', fontWeight: '900', marginBottom: '0.5rem', textAlign: 'center' }}>
-              Join TimeClok
-            </h1>
-            <p style={{ textAlign: 'center', color: '#999', marginBottom: '2rem' }}>
-              You've been invited to join a TimeClok workspace
-            </p>
+        <h1 style={{marginBottom: '2rem', textAlign: 'center'}}>⏱️ Join TimeClok</h1>
 
-            <div style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(0, 217, 255, 0.1)', borderRadius: '0.5rem' }}>
-              <div style={{ fontSize: '0.875rem', color: '#00d9ff', marginBottom: '0.5rem' }}>
-                Email
-              </div>
-              <div style={{ fontWeight: '600', fontSize: '1.125rem' }}>
-                {email}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '2rem' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                fontSize: '0.875rem',
-                color: '#999',
-              }}>
-                Create Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 6 characters"
-                style={{
-                  width: '100%',
-                  padding: '0.75rem 1rem',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: '0.5rem',
-                  color: '#fff',
-                  fontSize: '1rem',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-
-            {error && (
-              <div style={{
-                background: 'rgba(255, 0, 110, 0.2)',
-                color: '#ff006e',
-                padding: '1rem',
-                borderRadius: '0.5rem',
-                marginBottom: '1.5rem',
-                fontSize: '0.875rem',
-              }}>
-                {error}
-              </div>
-            )}
-
-            <button
-              onClick={handleSignup}
-              disabled={loading}
-              style={{
-                width: '100%',
-                background: '#00d9ff',
-                color: '#000',
-                border: 'none',
-                padding: '1rem',
-                borderRadius: '0.5rem',
-                fontWeight: '700',
-                fontSize: '1rem',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1,
-                marginBottom: '1rem',
-              }}
-            >
-              {loading ? 'Joining...' : 'Join Workspace'}
-            </button>
-
-            <div style={{
-              textAlign: 'center',
-              color: '#999',
-              fontSize: '0.875rem',
-            }}>
-              This will create your account and link you to your employer's workspace.
-            </div>
+        {error ? (
+          <div style={{
+            background: 'rgba(255, 0, 110, 0.2)',
+            color: '#ff006e',
+            padding: '1.5rem',
+            borderRadius: '0.5rem',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontWeight: '600', marginBottom: '1rem' }}>❌ {error}</div>
+            <a href="/" style={{ color: '#ff006e', textDecoration: 'underline' }}>Go back</a>
           </div>
         ) : (
-          <div style={{ textAlign: 'center' }}>
-            <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#ff006e' }}>
-              Invalid Invite
-            </h1>
-            <p style={{ color: '#999', marginBottom: '2rem' }}>
-              {error || 'This invite link is invalid or has expired.'}
+          <>
+            <p style={{textAlign: 'center', marginBottom: '2rem', color: '#ccc'}}>
+              Join <strong>{companyName}</strong> as an employee
             </p>
-            <button
-              onClick={() => router.push('/')}
-              style={{
-                background: '#00d9ff',
-                color: '#000',
-                border: 'none',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '0.5rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-              }}
-            >
-              Back to Home
-            </button>
-          </div>
+
+            <form onSubmit={handleSignup}>
+              <div style={{marginBottom: '1rem'}}>
+                <label style={{display: 'block', marginBottom: '0.5rem'}}>Email</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    background: 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    color: '#fff',
+                    borderRadius: '0.5rem',
+                    boxSizing: 'border-box',
+                    fontSize: '1rem'
+                  }}
+                />
+              </div>
+
+              <div style={{marginBottom: '1rem'}}>
+                <label style={{display: 'block', marginBottom: '0.5rem'}}>Password</label>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    background: 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    color: '#fff',
+                    borderRadius: '0.5rem',
+                    boxSizing: 'border-box',
+                    fontSize: '1rem'
+                  }}
+                />
+              </div>
+
+              <div style={{marginBottom: '1.5rem'}}>
+                <label style={{display: 'block', marginBottom: '0.5rem'}}>Hourly Rate ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={hourlyRate}
+                  onChange={(e) => setHourlyRate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    background: 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    color: '#fff',
+                    borderRadius: '0.5rem',
+                    boxSizing: 'border-box',
+                    fontSize: '1rem'
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  background: '#00d9ff',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  fontWeight: '600',
+                  cursor: submitting ? 'not-allowed' : 'pointer',
+                  opacity: submitting ? 0.6 : 1,
+                }}
+              >
+                {submitting ? 'Joining...' : 'Join Company'}
+              </button>
+            </form>
+          </>
         )}
       </div>
     </div>
   )
 }
 
-export default function JoinPage() {
+export default function Join() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>Loading...</div>}>
-      <JoinPageContent />
+    <Suspense fallback={
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: '#0a0a0a',
+        color: '#fff'
+      }}>
+        Loading...
+      </div>
+    }>
+      <JoinContent />
     </Suspense>
   )
 }

@@ -3,13 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
-import { useTranslation } from '../../lib/i18n'
 
 export default function ClockPage() {
   const router = useRouter()
-  const [lang, setLang] = useState('en')
-  const t = useTranslation(lang)
-  
   const supabase = createClient()
   
   const [user, setUser] = useState<any>(null)
@@ -33,7 +29,6 @@ export default function ClockPage() {
         }
         setUser(user)
 
-        // Fetch employee profile
         const { data: empData } = await supabase
           .from('employees')
           .select('*')
@@ -42,21 +37,18 @@ export default function ClockPage() {
 
         setEmployee(empData || {})
 
-        // Fetch time entries for today
         if (empData?.id) {
           const { data: entries } = await supabase
             .from('time_entries')
             .select('*')
             .eq('employee_id', empData.id)
 
-          // Check if currently clocked in
           const active = entries?.find(e => !e.clock_out)
           if (active) {
             setIsClockedIn(true)
             setCurrentSession(active)
           }
 
-          // Calculate totals
           const totalHours = entries?.reduce((sum, e) => sum + (e.hours_worked || 0), 0) || 0
           const totalEarned = totalHours * (empData?.hourly_rate || 0)
           setHoursWorked(totalHours)
@@ -74,7 +66,12 @@ export default function ClockPage() {
   }, [])
 
   const getLocation = async () => {
-    return new Promise<{lat: number, lng: number}>((resolve) => {
+    return new Promise<{lat: number, lng: number}>((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation not supported'))
+        return
+      }
+
       navigator.geolocation.getCurrentPosition(
         (position) => {
           resolve({
@@ -82,9 +79,15 @@ export default function ClockPage() {
             lng: position.coords.longitude,
           })
         },
-        () => {
-          // Fallback if location denied
+        (err) => {
+          console.error('Geolocation error:', err)
+          // Fallback to default location if denied
           resolve({ lat: 0, lng: 0 })
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
         }
       )
     })
@@ -93,13 +96,15 @@ export default function ClockPage() {
   const handleClockIn = async () => {
     try {
       setError('')
-      const coords = await getLocation()
-      setLocation(coords)
+      setSuccessMessage('')
 
       if (!employee?.id) {
         setError('Employee profile not found')
         return
       }
+
+      const coords = await getLocation()
+      setLocation(coords)
 
       const { data: timeEntry, error: err } = await supabase
         .from('time_entries')
@@ -119,7 +124,7 @@ export default function ClockPage() {
 
       setCurrentSession(timeEntry)
       setIsClockedIn(true)
-      setSuccessMessage('Clocked in successfully!')
+      setSuccessMessage('✅ Clocked in successfully!')
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (err: any) {
       setError(err.message)
@@ -129,6 +134,7 @@ export default function ClockPage() {
   const handleClockOut = async () => {
     try {
       setError('')
+      setSuccessMessage('')
 
       if (!currentSession?.id) {
         setError('No active session')
@@ -156,8 +162,19 @@ export default function ClockPage() {
 
       setIsClockedIn(false)
       setCurrentSession(null)
-      setSuccessMessage(`Clocked out! Worked ${hoursWorked.toFixed(2)} hours`)
+      setSuccessMessage(`✅ Clocked out! Worked ${hoursWorked.toFixed(2)} hours`)
       setTimeout(() => setSuccessMessage(''), 3000)
+
+      // Reload data
+      const { data: entries } = await supabase
+        .from('time_entries')
+        .select('*')
+        .eq('employee_id', employee.id)
+
+      const totalHours = entries?.reduce((sum, e) => sum + (e.hours_worked || 0), 0) || 0
+      const totalEarned = totalHours * (employee?.hourly_rate || 0)
+      setHoursWorked(totalHours)
+      setTotalEarnings(totalEarned)
     } catch (err: any) {
       setError(err.message)
     }
@@ -173,7 +190,7 @@ export default function ClockPage() {
         background: '#0a0a0a',
         color: '#fff',
       }}>
-        <div>{t.loadingDashboard}</div>
+        Loading...
       </div>
     )
   }
@@ -189,38 +206,21 @@ export default function ClockPage() {
         justifyContent: 'space-between',
         alignItems: 'center',
       }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: '900' }}>⏱️ {t.employeeDashboard}</h1>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <select
-            value={lang}
-            onChange={(e) => setLang(e.target.value)}
-            style={{
-              background: 'rgba(255,255,255,0.1)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              color: '#fff',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="en">English</option>
-            <option value="es">Español</option>
-          </select>
-          <button
-            onClick={() => supabase.auth.signOut().then(() => router.push('/'))}
-            style={{
-              background: 'rgba(255, 0, 110, 0.2)',
-              border: '1px solid rgba(255, 0, 110, 0.5)',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.5rem',
-              color: '#ff006e',
-              cursor: 'pointer',
-              fontWeight: '600',
-            }}
-          >
-            {t.logout}
-          </button>
-        </div>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: '900' }}>⏱️ Clock In/Out</h1>
+        <button
+          onClick={() => supabase.auth.signOut().then(() => router.push('/'))}
+          style={{
+            background: 'rgba(255, 0, 110, 0.2)',
+            border: '1px solid rgba(255, 0, 110, 0.5)',
+            padding: '0.5rem 1rem',
+            borderRadius: '0.5rem',
+            color: '#ff006e',
+            cursor: 'pointer',
+            fontWeight: '600',
+          }}
+        >
+          Logout
+        </button>
       </header>
 
       {/* Main Content */}
@@ -245,7 +245,7 @@ export default function ClockPage() {
             borderRadius: '0.5rem',
             marginBottom: '2rem',
           }}>
-            ✅ {successMessage}
+            {successMessage}
           </div>
         )}
 
@@ -272,12 +272,12 @@ export default function ClockPage() {
           </div>
           
           <div style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>
-            {isClockedIn ? t.clockedIn : 'Ready to Clock In'}
+            {isClockedIn ? 'You are clocked in' : 'Ready to clock in'}
           </div>
 
           {isClockedIn && currentSession && (
             <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '2rem' }}>
-              {t.clockIn}: {new Date(currentSession.clock_in).toLocaleTimeString()}
+              Since {new Date(currentSession.clock_in).toLocaleTimeString()}
             </div>
           )}
 
@@ -294,12 +294,12 @@ export default function ClockPage() {
               cursor: 'pointer',
             }}
           >
-            {isClockedIn ? t.clockOut : t.clockIn}
+            {isClockedIn ? 'Clock Out' : 'Clock In'}
           </button>
         </div>
 
         {/* Location */}
-        {location && (
+        {location && location.lat !== 0 && (
           <div style={{
             background: 'rgba(255,255,255,0.05)',
             border: '1px solid rgba(255,255,255,0.1)',
@@ -308,7 +308,7 @@ export default function ClockPage() {
             marginBottom: '2rem',
             fontSize: '0.875rem',
           }}>
-            <div style={{ marginBottom: '0.5rem' }}>📍 Location</div>
+            <div style={{ marginBottom: '0.5rem' }}>📍 Location Captured</div>
             <div style={{ color: '#999' }}>
               {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
             </div>
@@ -328,7 +328,7 @@ export default function ClockPage() {
             padding: '1.5rem',
           }}>
             <div style={{ fontSize: '0.875rem', color: '#00d9ff', marginBottom: '0.5rem' }}>
-              {t.totalEarnings}
+              Total Earnings
             </div>
             <div style={{ fontSize: '2rem', fontWeight: '900' }}>
               ${totalEarnings.toFixed(2)}
@@ -342,7 +342,7 @@ export default function ClockPage() {
             padding: '1.5rem',
           }}>
             <div style={{ fontSize: '0.875rem', color: '#ffdd00', marginBottom: '0.5rem' }}>
-              {t.hoursWorked}
+              Hours Worked
             </div>
             <div style={{ fontSize: '2rem', fontWeight: '900' }}>
               {hoursWorked.toFixed(1)} hrs
