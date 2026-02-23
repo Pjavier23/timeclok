@@ -38,21 +38,31 @@ export async function POST(request: Request) {
 
     if (projError) throw projError
 
-    // Fetch time entries
-    const { data: timeEntries, error: timeError } = await supabase
-      .from('time_entries')
-      .select('*')
-      .eq('employee_id', employees?.[0]?.id)
+    // Fetch time entries (only if we have employees)
+    let timeEntries = []
+    if (employees && employees.length > 0) {
+      const { data: entries, error: timeError } = await supabase
+        .from('time_entries')
+        .select('*')
+        .eq('employee_id', employees[0].id)
+        .limit(5)
 
-    if (timeError) throw timeError
+      if (timeError) console.warn('Time entries error:', timeError.message)
+      else timeEntries = entries || []
+    }
 
-    // Fetch payroll
-    const { data: payroll, error: payError } = await supabase
-      .from('payroll')
-      .select('*')
-      .eq('employee_id', employees?.[0]?.id)
+    // Fetch payroll (only if we have employees)
+    let payroll = []
+    if (employees && employees.length > 0) {
+      const { data: payrollData, error: payError } = await supabase
+        .from('payroll')
+        .select('*')
+        .eq('employee_id', employees[0].id)
+        .limit(5)
 
-    if (payError) throw payError
+      if (payError) console.warn('Payroll error:', payError.message)
+      else payroll = payrollData || []
+    }
 
     return Response.json({
       company,
