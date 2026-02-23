@@ -142,6 +142,22 @@ export async function POST(request: Request) {
       } else {
         console.log('User updated with company_id')
       }
+      
+      // Auto-seed sample data
+      try {
+        console.log('Seeding sample data for setup account...')
+        const seedRes = await fetch(`${request.headers.get('origin') || 'https://timeclok.vercel.app'}/api/seed-company`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyId,
+            ownerId: userId,
+          }),
+        })
+        console.log('Setup seed response:', seedRes.status)
+      } catch (e) {
+        console.warn('Setup seed failed (non-blocking):', e)
+      }
     }
 
     // Success

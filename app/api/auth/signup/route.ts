@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     if (companyName) {
       const { data: companyData } = await supabase
         .from('companies')
-        .insert([{ name: companyName, owner_id: authData.user.id }])
+        .insert([{ name: companyName, owner_id: userId }])
         .select()
         .single()
       
@@ -82,7 +82,23 @@ export async function POST(request: Request) {
         await supabase
           .from('users')
           .update({ company_id: companyId })
-          .eq('id', authData.user.id)
+          .eq('id', userId)
+        
+        // Auto-seed sample data for immediate onboarding
+        try {
+          console.log('Seeding sample data...')
+          const seedRes = await fetch(`${request.headers.get('origin') || 'https://timeclok.vercel.app'}/api/seed-company`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              companyId,
+              ownerId: userId,
+            }),
+          })
+          console.log('Seed response:', seedRes.status)
+        } catch (e) {
+          console.warn('Seed failed (non-blocking):', e)
+        }
       }
     }
 
@@ -90,7 +106,7 @@ export async function POST(request: Request) {
       user: authData.user,
       session: authData.session,
       companyId,
-      message: 'Signup successful!'
+      message: 'Signup successful! Your dashboard is ready with sample data.'
     }, { status: 201 })
   } catch (error: any) {
     console.error('Signup error:', error)
