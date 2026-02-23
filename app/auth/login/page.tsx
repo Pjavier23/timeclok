@@ -24,8 +24,28 @@ export default function Login() {
         password
       })
 
-      if (signInError) throw signInError
+      if (signInError) {
+        console.error('SignIn error:', signInError)
+        
+        // Check if email not confirmed
+        if (signInError.message?.includes('Email not confirmed') || 
+            signInError.message?.includes('email_not_confirmed')) {
+          setError('Please confirm your email first. Check your inbox for the confirmation link.')
+          setLoading(false)
+          return
+        }
+        
+        throw signInError
+      }
+      
       if (!data.user) throw new Error('Login failed')
+
+      // Check if email is confirmed
+      if (!data.user.email_confirmed_at) {
+        setError('Please confirm your email first. Check your inbox for the confirmation link.')
+        setLoading(false)
+        return
+      }
 
       // Get user type to redirect to correct dashboard
       const { data: userData, error: userError } = await supabase
@@ -78,40 +98,40 @@ export default function Login() {
         <form onSubmit={handleLogin}>
           <div style={{marginBottom: '1rem'}}>
             <label style={{display: 'block', marginBottom: '0.5rem'}}>Email</label>
-            <input 
-              type="email" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
+            <input
+              type="email"
               required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               style={{
                 width: '100%',
                 padding: '0.75rem',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.2)',
                 color: '#fff',
                 borderRadius: '0.5rem',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                fontSize: '1rem'
               }}
             />
           </div>
 
           <div style={{marginBottom: '1.5rem'}}>
             <label style={{display: 'block', marginBottom: '0.5rem'}}>Password</label>
-            <input 
-              type="password" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+            <input
+              type="password"
               required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               style={{
                 width: '100%',
                 padding: '0.75rem',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.2)',
                 color: '#fff',
                 borderRadius: '0.5rem',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                fontSize: '1rem'
               }}
             />
           </div>
@@ -120,7 +140,7 @@ export default function Login() {
             <div style={{
               background: 'rgba(255, 0, 110, 0.2)',
               color: '#ff006e',
-              padding: '0.75rem',
+              padding: '1rem',
               borderRadius: '0.5rem',
               marginBottom: '1rem',
               fontSize: '0.875rem'
@@ -129,14 +149,14 @@ export default function Login() {
             </div>
           )}
 
-          <button 
+          <button
             type="submit"
             disabled={loading}
             style={{
               width: '100%',
               padding: '0.75rem',
-              background: '#ff006e',
-              color: '#fff',
+              background: '#00d9ff',
+              color: '#000',
               border: 'none',
               borderRadius: '0.5rem',
               fontWeight: '600',
@@ -147,24 +167,17 @@ export default function Login() {
           >
             {loading ? 'Logging in...' : 'Log In'}
           </button>
-
-          <button 
-            type="button"
-            onClick={() => router.push('/auth/signup')}
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              background: 'transparent',
-              color: '#ff006e',
-              border: '2px solid #ff006e',
-              borderRadius: '0.5rem',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            Don't have an account? Sign up
-          </button>
         </form>
+
+        <div style={{textAlign: 'center', color: '#999', fontSize: '0.875rem'}}>
+          Don't have an account?{' '}
+          <a
+            href="/auth/signup"
+            style={{color: '#00d9ff', textDecoration: 'none'}}
+          >
+            Sign up
+          </a>
+        </div>
       </div>
     </div>
   )
