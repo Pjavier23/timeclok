@@ -12,25 +12,30 @@ export async function POST(request: Request) {
     const anonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
     const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
     
-    // Try to use admin API if service role key exists, otherwise use standard signup
     let supabase: any
     let authData: any
+    let userId: string | null = null
     
+    // Always try admin API first if we have service role key
     if (serviceRoleKey) {
-      // Admin path (no rate limiting)
-      console.log('Using admin API for signup')
+      console.log('Using admin API for auto-confirmed signup')
       supabase = createClient(supabaseUrl, serviceRoleKey)
       
       const { data, error } = await supabase.auth.admin.createUser({
         email,
         password,
-        email_confirm: true,
+        email_confirm: true, // Auto-confirm so they can login immediately
       })
       
-      if (error) throw error
+      if (error) {
+        console.error('Admin signup failed:', error.message)
+        throw error
+      }
+      
       authData = { user: data.user, session: null }
+      userId = data.user.id
     } else {
-      // Standard path (may hit rate limits)
+      // Fallback to standard signup
       console.log('Using standard signup')
       supabase = createClient(supabaseUrl, anonKey)
       
@@ -41,9 +46,10 @@ export async function POST(request: Request) {
       
       if (error) throw error
       authData = data
+      userId = data.user?.id
     }
 
-    if (!authData.user) throw new Error('Signup failed')
+    if (!authData.user || !userId) throw new Error('Signup failed')
 
     // Auto-create user profile
     const profileRes = await fetch(`${request.headers.get('origin') || 'https://timeclok.vercel.app'}/api/auth/create-profile`, {

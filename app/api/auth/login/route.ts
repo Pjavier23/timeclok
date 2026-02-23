@@ -39,11 +39,16 @@ export async function POST(request: Request) {
       .eq('id', data.user.id)
       .single()
 
+    const dashboardUrl = userProfile?.user_type === 'employee' 
+      ? 'https://timeclok.vercel.app/employee/dashboard'
+      : 'https://timeclok.vercel.app/owner/dashboard'
+
     return Response.json({
       user: data.user,
       userType: userProfile?.user_type || 'owner',
       session: data.session,
-      message: 'Login successful'
+      dashboardUrl,
+      message: 'Login successful - go to dashboard'
     })
   } catch (error: any) {
     console.error('Login error:', error)
