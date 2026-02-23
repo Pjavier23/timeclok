@@ -54,6 +54,11 @@ function SignUpForm() {
       setSuccessEmail(email)
       localStorage.removeItem('demo_mode')
       
+      // Redirect to login in 2 seconds
+      setTimeout(() => {
+        router.push('/auth/login?email=' + encodeURIComponent(email))
+      }, 2000)
+      
     } catch (err: any) {
       const errorMsg = err.message || 'Signup failed. Please try again.'
       setError(errorMsg)
@@ -84,12 +89,12 @@ function SignUpForm() {
           width: '100%',
           textAlign: 'center'
         }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✉️</div>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#00d9ff' }}>
-            Check Your Email
+            Account Created!
           </h2>
           <p style={{ marginBottom: '2rem', color: '#ccc' }}>
-            We sent a confirmation link to <strong>{successEmail}</strong>
+            Welcome to TimeClok, <strong>{successEmail}</strong>
           </p>
           <div style={{
             background: 'rgba(255, 221, 0, 0.1)',
@@ -100,17 +105,9 @@ function SignUpForm() {
             color: '#ffdd00',
             fontSize: '0.875rem'
           }}>
-            <strong>📝 Next Steps:</strong>
-            <ol style={{ marginTop: '1rem', textAlign: 'left' }}>
-              <li>Check your inbox for an email from TimeClok</li>
-              <li>Click the confirmation link in the email</li>
-              <li>You'll be redirected to login</li>
-              <li>Enter your email and password to access your dashboard</li>
-            </ol>
+            <strong>🎉 You're all set!</strong>
+            <p style={{ marginTop: '1rem' }}>Redirecting to login page...</p>
           </div>
-          <p style={{ fontSize: '0.875rem', color: '#999', marginBottom: '2rem' }}>
-            Can't find the email? Check your spam/junk folder.
-          </p>
           <button
             onClick={() => router.push('/auth/login')}
             style={{
@@ -124,7 +121,7 @@ function SignUpForm() {
               cursor: 'pointer'
             }}
           >
-            Go to Login
+            Go to Login Now
           </button>
         </div>
       </div>

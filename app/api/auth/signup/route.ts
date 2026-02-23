@@ -13,22 +13,18 @@ export async function POST(request: Request) {
     
     const supabase = createClient(supabaseUrl, anonKey)
 
-    // Sign up with email confirmation required
-    console.log('Signup with email confirmation required')
-    const origin = request.headers.get('origin') || 'https://timeclok.vercel.app'
-    
+    // Sign up
+    console.log('Signing up user:', email)
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        emailRedirectTo: `${origin}/auth/confirm`,
-      },
     })
 
     if (error) throw error
     if (!data.user) throw new Error('Signup failed')
 
     const userId = data.user.id
+    console.log('User created:', userId)
 
     // Create company if name provided
     let companyId: string | null = null
@@ -40,13 +36,15 @@ export async function POST(request: Request) {
         .single()
       
       companyId = companyData?.id || null
+      console.log('Company created:', companyId)
     }
 
     return Response.json({
+      success: true,
       user: data.user,
       session: data.session,
       companyId,
-      message: `Confirmation email sent to ${email}. Please check your inbox and click the link to verify your account.`,
+      message: 'Account created successfully. You can now log in.',
     }, { status: 201 })
   } catch (error: any) {
     console.error('Signup error:', error)

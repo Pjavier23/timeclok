@@ -1,17 +1,25 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
 
-export default function Login() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
   
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const emailParam = searchParams.get('email')
+    if (emailParam) {
+      setEmail(emailParam)
+    }
+  }, [searchParams])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,26 +34,10 @@ export default function Login() {
 
       if (signInError) {
         console.error('SignIn error:', signInError)
-        
-        // Check if email not confirmed
-        if (signInError.message?.includes('Email not confirmed') || 
-            signInError.message?.includes('email_not_confirmed')) {
-          setError('Please confirm your email first. Check your inbox for the confirmation link.')
-          setLoading(false)
-          return
-        }
-        
         throw signInError
       }
       
       if (!data.user) throw new Error('Login failed')
-
-      // Check if email is confirmed
-      if (!data.user.email_confirmed_at) {
-        setError('Please confirm your email first. Check your inbox for the confirmation link.')
-        setLoading(false)
-        return
-      }
 
       // Get user type to redirect to correct dashboard
       const { data: userData, error: userError } = await supabase
@@ -55,8 +47,8 @@ export default function Login() {
         .single()
 
       if (userError) {
-        // User profile doesn't exist, redirect to signup completion
-        router.push('/auth/signup')
+        // User profile doesn't exist yet, still redirect to dashboard
+        router.push('/owner/dashboard')
         return
       }
 
@@ -180,5 +172,24 @@ export default function Login() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: '#0a0a0a',
+        color: '#fff'
+      }}>
+        Loading...
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }
