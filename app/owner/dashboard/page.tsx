@@ -17,6 +17,13 @@ export default function OwnerDashboard() {
   const [copiedLink, setCopiedLink] = useState(false)
   const [payrollUpdating, setPayrollUpdating] = useState<string | null>(null)
 
+  // Invite modal state
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteName, setInviteName] = useState('')
+  const [inviteSending, setInviteSending] = useState(false)
+  const [inviteResult, setInviteResult] = useState<{ success: boolean; emailSent: boolean; inviteUrl: string; message: string } | null>(null)
+
   const fetchData = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) {
@@ -85,6 +92,39 @@ export default function OwnerDashboard() {
       await fetchData()
     }
     setPayrollUpdating(null)
+  }
+
+  const handleSendInvite = async () => {
+    if (!inviteEmail) return
+    setInviteSending(true)
+    setInviteResult(null)
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    const res = await fetch('/api/invite', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ email: inviteEmail, name: inviteName }),
+    })
+
+    const json = await res.json()
+    setInviteResult(json)
+    setInviteSending(false)
+
+    if (json.success) {
+      await fetchData()
+    }
+  }
+
+  const resetInviteModal = () => {
+    setShowInviteModal(false)
+    setInviteEmail('')
+    setInviteName('')
+    setInviteResult(null)
   }
 
   // ── Styles ──────────────────────────────────────────
@@ -320,31 +360,19 @@ export default function OwnerDashboard() {
             <div style={S.card}>
               <div style={S.cardHeader}>
                 <div style={S.cardTitle}>Team Members ({employees?.length ?? 0})</div>
-                <button onClick={copyInviteLink} style={S.inviteBtn}>
-                  {copiedLink ? '✓ Copied!' : '+ Add Employee'}
+                <button onClick={() => { setShowInviteModal(true); setInviteResult(null) }} style={S.inviteBtn}>
+                  + Invite Employee
                 </button>
               </div>
 
-              {/* Invite link display */}
-              {company && (
-                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,217,255,0.04)' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#00d9ff', fontWeight: '600', marginBottom: '0.4rem' }}>EMPLOYEE INVITE LINK</div>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <code style={{ fontSize: '0.8rem', color: '#aaa', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
-                      {typeof window !== 'undefined' ? generateInviteLink() : `.../${company.id}`}
-                    </code>
-                    <button onClick={copyInviteLink} style={S.btn('#000', '#00d9ff')}>
-                      {copiedLink ? '✓' : 'Copy'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {employees?.length === 0 ? (
-                <div style={S.emptyState}>
-                  <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>👥</div>
-                  <div>No employees yet.</div>
-                  <div style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>Copy the invite link above and share it with your employees.</div>
+                <div style={{ ...S.emptyState, padding: '3rem 2rem' }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👥</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.5rem' }}>No employees yet</div>
+                  <div style={{ fontSize: '0.875rem', color: '#555', marginBottom: '1.5rem' }}>Invite your first employee to get started</div>
+                  <button onClick={() => setShowInviteModal(true)} style={S.inviteBtn}>
+                    + Send First Invite
+                  </button>
                 </div>
               ) : (
                 <table style={S.table}>
@@ -369,6 +397,147 @@ export default function OwnerDashboard() {
                     ))}
                   </tbody>
                 </table>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── INVITE MODAL ── */}
+        {showInviteModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+            onClick={(e) => { if (e.target === e.currentTarget) resetInviteModal() }}>
+            <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '480px' }}>
+
+              {!inviteResult ? (
+                <>
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: '800' }}>Invite an Employee</h3>
+                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#666' }}>
+                      They'll get an email with a link to create their account and join your team instantly.
+                    </p>
+                  </div>
+
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#999', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendInvite()}
+                      placeholder="employee@example.com"
+                      autoFocus
+                      style={{
+                        width: '100%', boxSizing: 'border-box',
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: '8px', padding: '0.75rem 1rem',
+                        color: '#fff', fontSize: '1rem', outline: 'none',
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#999', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+                      Name (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={inviteName}
+                      onChange={(e) => setInviteName(e.target.value)}
+                      placeholder="John Smith"
+                      style={{
+                        width: '100%', boxSizing: 'border-box',
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: '8px', padding: '0.75rem 1rem',
+                        color: '#fff', fontSize: '1rem', outline: 'none',
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button
+                      onClick={handleSendInvite}
+                      disabled={inviteSending || !inviteEmail}
+                      style={{
+                        flex: 1, padding: '0.875rem',
+                        background: (!inviteEmail || inviteSending) ? 'rgba(0,217,255,0.3)' : '#00d9ff',
+                        color: '#000', border: 'none', borderRadius: '8px',
+                        fontWeight: '700', fontSize: '0.95rem',
+                        cursor: (!inviteEmail || inviteSending) ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      {inviteSending ? 'Sending...' : '✉️ Send Invite'}
+                    </button>
+                    <button
+                      onClick={resetInviteModal}
+                      style={{
+                        padding: '0.875rem 1.25rem',
+                        background: 'transparent',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        color: '#666', borderRadius: '8px',
+                        cursor: 'pointer', fontWeight: '600',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Result screen */}
+                  <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>
+                      {inviteResult.emailSent ? '✉️' : '🔗'}
+                    </div>
+                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: '800', color: inviteResult.success ? '#22c55e' : '#ef4444' }}>
+                      {inviteResult.emailSent ? 'Invite Sent!' : 'Share This Link'}
+                    </h3>
+                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#999' }}>
+                      {inviteResult.message}
+                    </p>
+                  </div>
+
+                  {/* Always show the invite link */}
+                  {inviteResult.inviteUrl && (
+                    <div style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '1rem' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.5rem', fontWeight: '600' }}>INVITE LINK</div>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <code style={{ fontSize: '0.75rem', color: '#aaa', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                          {inviteResult.inviteUrl}
+                        </code>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(inviteResult.inviteUrl).catch(() => {})
+                            setCopiedLink(true)
+                            setTimeout(() => setCopiedLink(false), 2000)
+                          }}
+                          style={S.btn('#000', copiedLink ? '#22c55e' : '#00d9ff')}
+                        >
+                          {copiedLink ? '✓' : 'Copy'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button
+                      onClick={() => { setInviteEmail(''); setInviteName(''); setInviteResult(null) }}
+                      style={{ flex: 1, padding: '0.75rem', background: '#00d9ff', color: '#000', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                    >
+                      Invite Another
+                    </button>
+                    <button
+                      onClick={resetInviteModal}
+                      style={{ padding: '0.75rem 1.25rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: '#666', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}
+                    >
+                      Done
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           </div>
