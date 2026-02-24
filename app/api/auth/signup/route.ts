@@ -53,6 +53,32 @@ export async function POST(request: Request) {
       .update({ company_id: company.id })
       .eq('id', userId)
 
+    // 5. Notify Pedro of new signup (fire-and-forget)
+    const resendKey = process.env.RESEND_API_KEY
+    const notifyEmail = process.env.NOTIFY_EMAIL || 'pedro@jastheshop.com'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://timeclok.vercel.app'
+
+    if (resendKey) {
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'TimeClok Alerts <onboarding@resend.dev>',
+          to: [notifyEmail],
+          subject: `🔔 New customer: ${companyName} (${email})`,
+          html: `<div style="font-family:sans-serif;padding:32px;background:#0f0f0f;color:#fff;border-radius:12px;">
+            <h2 style="color:#00d9ff;margin:0 0 16px;">⏱ New TimeClok Customer!</h2>
+            <div style="background:#1a1a1a;border-radius:8px;padding:16px;margin-bottom:16px;">
+              <div style="font-size:1.1rem;font-weight:700;color:#fff;">${companyName}</div>
+              <div style="color:#999;margin-top:4px;">${email}</div>
+              <div style="color:#666;font-size:0.8rem;margin-top:4px;">${new Date().toLocaleString()}</div>
+            </div>
+            <a href="${appUrl}/admin" style="display:inline-block;background:#00d9ff;color:#000;padding:12px 24px;border-radius:8px;font-weight:700;text-decoration:none;">View Admin Dashboard →</a>
+          </div>`,
+        }),
+      }).catch(() => {}) // don't block signup if notification fails
+    }
+
     return Response.json({
       success: true,
       message: 'Account created. You can now log in.',
