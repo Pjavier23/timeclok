@@ -16,6 +16,10 @@ export default function EmployeeDashboard() {
   const [clockLoading, setClockLoading] = useState(false)
   const [elapsed, setElapsed] = useState(0) // seconds since clock in
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const [taxEnabled, setTaxEnabled] = useState(false)
+  const [taxAmount, setTaxAmount] = useState(25)
+  const [taxSaving, setTaxSaving] = useState(false)
+  const [taxSaved, setTaxSaved] = useState(false)
 
   const getSession = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -43,6 +47,8 @@ export default function EmployeeDashboard() {
       setError(json.error)
     } else {
       setData(json)
+      setTaxEnabled(json.stats?.taxReserveEnabled ?? false)
+      setTaxAmount(json.stats?.taxReservePerPeriod ?? 25)
     }
     setLoading(false)
   }, [])
@@ -138,6 +144,20 @@ export default function EmployeeDashboard() {
       await fetchData()
     }
     setClockLoading(false)
+  }
+
+  const handleSaveTaxSettings = async () => {
+    setTaxSaving(true)
+    const session = await getSession()
+    if (!session) return
+    await fetch('/api/employee/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ tax_reserve_enabled: taxEnabled, tax_reserve_per_period: taxAmount }),
+    })
+    setTaxSaving(false)
+    setTaxSaved(true)
+    setTimeout(() => setTaxSaved(false), 3000)
   }
 
   const handleLogout = async () => {
@@ -429,19 +449,113 @@ export default function EmployeeDashboard() {
         {/* ── EARNINGS TAB ── */}
         {activeTab === 'earnings' && (
           <div>
-            {/* Summary */}
+            {/* Summary stats */}
             <div style={S.statGrid}>
               <div style={S.statCard('#22c55e')}>
                 <div style={S.statLabel}>Total Hours</div>
                 <div style={{ ...S.statValue, color: '#22c55e' }}>{stats?.totalHours ?? 0}h</div>
               </div>
               <div style={S.statCard('#00d9ff')}>
-                <div style={S.statLabel}>Hourly Rate</div>
-                <div style={{ ...S.statValue, color: '#00d9ff' }}>${stats?.hourlyRate?.toFixed(2) ?? '0.00'}</div>
+                <div style={S.statLabel}>Gross Earned</div>
+                <div style={{ ...S.statValue, color: '#00d9ff' }}>${stats?.totalGross?.toFixed(2) ?? '0.00'}</div>
               </div>
               <div style={S.statCard('#f59e0b')}>
-                <div style={S.statLabel}>Total Earned</div>
-                <div style={{ ...S.statValue, color: '#f59e0b' }}>${stats?.totalEarned?.toFixed(2) ?? '0.00'}</div>
+                <div style={S.statLabel}>Tax Reserved 🐷</div>
+                <div style={{ ...S.statValue, color: '#f59e0b' }}>${stats?.totalTaxReserved?.toFixed(2) ?? '0.00'}</div>
+              </div>
+              <div style={S.statCard('#a78bfa')}>
+                <div style={S.statLabel}>Net Pay</div>
+                <div style={{ ...S.statValue, color: '#a78bfa' }}>${stats?.totalNet?.toFixed(2) ?? '0.00'}</div>
+              </div>
+            </div>
+
+            {/* Tax Reserve Settings Card */}
+            <div style={{ ...S.card, marginBottom: '1.5rem' }}>
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: '700', fontSize: '1rem' }}>🐷 Tax Reserve</div>
+                  <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.2rem' }}>Set aside money each paycheck for year-end taxes</div>
+                </div>
+                {/* Toggle switch */}
+                <button
+                  onClick={() => setTaxEnabled(!taxEnabled)}
+                  style={{
+                    position: 'relative',
+                    width: '52px',
+                    height: '28px',
+                    background: taxEnabled ? '#22c55e' : 'rgba(255,255,255,0.15)',
+                    borderRadius: '100px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s',
+                    flexShrink: 0,
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute',
+                    top: '3px',
+                    left: taxEnabled ? '27px' : '3px',
+                    width: '22px',
+                    height: '22px',
+                    background: '#fff',
+                    borderRadius: '50%',
+                    transition: 'left 0.2s',
+                    display: 'block',
+                  }} />
+                </button>
+              </div>
+              <div style={{ padding: '1.25rem 1.5rem' }}>
+                <div style={{ color: taxEnabled ? '#fff' : '#555', transition: 'color 0.2s', marginBottom: '1rem', fontSize: '0.9rem' }}>
+                  {taxEnabled
+                    ? '✅ Active — your tax reserve will be applied to each approved paycheck.'
+                    : '💡 Tip: 1099 contractors often owe 25–30% in taxes at year-end. Reserving a small amount each check avoids a surprise bill.'}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.875rem', color: '#999', whiteSpace: 'nowrap' }}>Amount per paycheck:</label>
+                    <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', overflow: 'hidden' }}>
+                      <span style={{ padding: '0.5rem 0.75rem', color: '#666', borderRight: '1px solid rgba(255,255,255,0.08)', fontSize: '0.9rem' }}>$</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="5"
+                        value={taxAmount}
+                        onChange={(e) => setTaxAmount(Number(e.target.value))}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#fff',
+                          padding: '0.5rem 0.75rem',
+                          width: '80px',
+                          fontSize: '0.9rem',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleSaveTaxSettings}
+                    disabled={taxSaving}
+                    style={{
+                      background: taxSaved ? 'rgba(34,197,94,0.2)' : 'rgba(0,217,255,0.15)',
+                      border: `1px solid ${taxSaved ? 'rgba(34,197,94,0.5)' : 'rgba(0,217,255,0.3)'}`,
+                      color: taxSaved ? '#22c55e' : '#00d9ff',
+                      padding: '0.5rem 1.25rem',
+                      borderRadius: '8px',
+                      cursor: taxSaving ? 'not-allowed' : 'pointer',
+                      fontWeight: '600',
+                      fontSize: '0.875rem',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {taxSaved ? '✓ Saved!' : taxSaving ? 'Saving...' : 'Save Settings'}
+                  </button>
+                </div>
+                {taxEnabled && (
+                  <div style={{ marginTop: '1rem', padding: '0.875rem', background: 'rgba(247,159,11,0.08)', border: '1px solid rgba(247,159,11,0.2)', borderRadius: '8px', fontSize: '0.8rem', color: '#f59e0b' }}>
+                    💰 <strong>${taxAmount}</strong> will be set aside from each approved paycheck. This money is yours — it just stays earmarked so you have it when tax season comes.
+                  </div>
+                )}
               </div>
             </div>
 
@@ -454,20 +568,28 @@ export default function EmployeeDashboard() {
                 <div style={{ padding: '2rem', textAlign: 'center', color: '#555' }}>No payroll records yet</div>
               ) : (
                 <>
-                  <div style={{ padding: '0.875rem 1.5rem', background: 'rgba(255,255,255,0.02)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '0' }}>
-                    {['Week', 'Hours', 'Rate', 'Amount', 'Status'].map(h => (
+                  <div style={{ padding: '0.875rem 1.5rem', background: 'rgba(255,255,255,0.02)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr 1fr', gap: '0' }}>
+                    {['Week', 'Hours', 'Gross', 'Tax Reserved', 'Net Pay', 'Status'].map(h => (
                       <div key={h} style={{ fontSize: '0.7rem', color: '#555', fontWeight: '600', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>{h}</div>
                     ))}
                   </div>
-                  {payroll.map((pr: any) => (
-                    <div key={pr.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '0', padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '0.875rem' }}>
-                      <div>{pr.week_ending}</div>
-                      <div>{pr.total_hours}h</div>
-                      <div>${pr.hourly_rate?.toFixed(2)}</div>
-                      <div style={{ fontWeight: '700', color: '#22c55e' }}>${pr.total_amount?.toFixed(2)}</div>
-                      <div>{statusBadge(pr.status)}</div>
-                    </div>
-                  ))}
+                  {payroll.map((pr: any) => {
+                    const gross = pr.total_amount || 0
+                    const taxWithheld = pr.tax_withheld || 0
+                    const net = pr.net_amount ?? gross
+                    return (
+                      <div key={pr.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr 1fr', gap: '0', padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '0.875rem', alignItems: 'center' }}>
+                        <div style={{ color: '#999' }}>{pr.week_ending}</div>
+                        <div>{pr.total_hours}h</div>
+                        <div style={{ color: '#00d9ff' }}>${gross.toFixed(2)}</div>
+                        <div style={{ color: taxWithheld > 0 ? '#f59e0b' : '#555' }}>
+                          {taxWithheld > 0 ? `🐷 $${taxWithheld.toFixed(2)}` : '—'}
+                        </div>
+                        <div style={{ fontWeight: '700', color: '#22c55e' }}>${net.toFixed(2)}</div>
+                        <div>{statusBadge(pr.status)}</div>
+                      </div>
+                    )
+                  })}
                 </>
               )}
             </div>

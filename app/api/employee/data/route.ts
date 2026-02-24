@@ -70,6 +70,12 @@ export async function GET(request: Request) {
       .filter((e: any) => e.clock_in >= weekAgo && e.hours_worked)
       .reduce((sum: number, e: any) => sum + (e.hours_worked || 0), 0)
 
+    const totalGross = Math.round(totalHours * (employee?.hourly_rate || 0) * 100) / 100
+
+    // Sum all tax withheld from payroll records
+    const totalTaxReserved = payroll
+      .reduce((sum: number, pr: any) => sum + (pr.tax_withheld || 0), 0)
+
     return Response.json({
       user: { id: user.id, email: user.email, ...userData },
       employee: employee || null,
@@ -79,8 +85,12 @@ export async function GET(request: Request) {
       stats: {
         totalHours: Math.round(totalHours * 10) / 10,
         weeklyHours: Math.round(weeklyHours * 10) / 10,
-        totalEarned: Math.round(totalHours * (employee?.hourly_rate || 0) * 100) / 100,
+        totalGross,
+        totalTaxReserved: Math.round(totalTaxReserved * 100) / 100,
+        totalNet: Math.round((totalGross - totalTaxReserved) * 100) / 100,
         hourlyRate: employee?.hourly_rate || 0,
+        taxReserveEnabled: employee?.tax_reserve_enabled ?? false,
+        taxReservePerPeriod: employee?.tax_reserve_per_period ?? 25.00,
       },
     })
   } catch (err: any) {

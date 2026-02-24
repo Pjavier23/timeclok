@@ -435,20 +435,28 @@ export default function OwnerDashboard() {
                       <th style={S.th}>Employee</th>
                       <th style={S.th}>Week Ending</th>
                       <th style={S.th}>Hours</th>
-                      <th style={S.th}>Rate</th>
-                      <th style={S.th}>Total</th>
+                      <th style={S.th}>Gross</th>
+                      <th style={S.th}>Tax Reserved 🐷</th>
+                      <th style={S.th}>Net Pay</th>
                       <th style={S.th}>Status</th>
                       <th style={S.th}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {payroll.map((pr: any) => (
+                    {payroll.map((pr: any) => {
+                      const gross = pr.total_amount || 0
+                      const taxWithheld = pr.tax_withheld || 0
+                      const net = pr.net_amount ?? gross
+                      return (
                       <tr key={pr.id}>
                         <td style={S.td}>{pr.employees?.users?.full_name || pr.employees?.users?.email || '—'}</td>
                         <td style={S.td}>{pr.week_ending}</td>
-                        <td style={S.td}>{pr.total_hours}</td>
-                        <td style={S.td}>${pr.hourly_rate?.toFixed(2) ?? '0.00'}</td>
-                        <td style={{ ...S.td, fontWeight: '700', color: '#22c55e' }}>${pr.total_amount?.toFixed(2) ?? '0.00'}</td>
+                        <td style={S.td}>{pr.total_hours}h</td>
+                        <td style={S.td}>${gross.toFixed(2)}</td>
+                        <td style={{ ...S.td, color: taxWithheld > 0 ? '#f59e0b' : '#444' }}>
+                          {taxWithheld > 0 ? `$${taxWithheld.toFixed(2)}` : '—'}
+                        </td>
+                        <td style={{ ...S.td, fontWeight: '700', color: '#22c55e' }}>${net.toFixed(2)}</td>
                         <td style={S.td}>{statusBadge(pr.status)}</td>
                         <td style={S.td}>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -476,7 +484,8 @@ export default function OwnerDashboard() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               )}

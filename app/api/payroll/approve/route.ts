@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
     const supabase = createServiceClient()
 
-    // Verify this owner owns the company that has this employee
+    // Verify owner owns the company
     const { data: userData } = await supabase
       .from('users')
       .select('company_id')
@@ -31,7 +31,27 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Not authorized' }, { status: 403 })
     }
 
+    // Get the payroll record + employee tax reserve settings
+    const { data: payrollRecord } = await supabase
+      .from('payroll')
+      .select('*, employees(tax_reserve_enabled, tax_reserve_per_period, hourly_rate)')
+      .eq('id', payrollId)
+      .single()
+
     const updateData: any = { status }
+
+    // When approving, calculate tax reserve withholding
+    if (status === 'approved' && payrollRecord) {
+      const emp = payrollRecord.employees
+      const taxEnabled = emp?.tax_reserve_enabled ?? false
+      const taxAmount = taxEnabled ? (emp?.tax_reserve_per_period ?? 0) : 0
+      const gross = payrollRecord.total_amount || 0
+      const net = Math.max(0, gross - taxAmount)
+
+      updateData.tax_withheld = taxAmount
+      updateData.net_amount = Math.round(net * 100) / 100
+    }
+
     if (status === 'paid') {
       updateData.paid_date = new Date().toISOString().split('T')[0]
     }
