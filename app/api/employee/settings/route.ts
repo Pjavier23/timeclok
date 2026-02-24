@@ -10,13 +10,14 @@ export async function GET(request: Request) {
   const supabase = createServiceClient()
   const { data: employee } = await supabase
     .from('employees')
-    .select('tax_reserve_enabled, tax_reserve_per_period')
+    .select('*')
     .eq('user_id', user.id)
     .single()
 
   return Response.json({
     tax_reserve_enabled: employee?.tax_reserve_enabled ?? false,
     tax_reserve_per_period: employee?.tax_reserve_per_period ?? 25.00,
+    migration_needed: !('tax_reserve_enabled' in (employee || {})),
   })
 }
 
@@ -42,7 +43,17 @@ export async function PATCH(request: Request) {
     })
     .eq('user_id', user.id)
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) {
+    // Columns likely not migrated yet — return helpful message
+    if (error.message?.includes('tax_reserve')) {
+      return Response.json({
+        success: false,
+        migration_needed: true,
+        message: 'Database migration needed. Run the SQL in Supabase to activate this feature.',
+      })
+    }
+    return Response.json({ error: error.message }, { status: 500 })
+  }
 
   return Response.json({ success: true, message: 'Tax reserve settings saved.' })
 }

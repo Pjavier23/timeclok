@@ -210,6 +210,22 @@ export default function AdminDashboard() {
           </table>
         </div>
 
+        {/* Migration helper */}
+        <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }}>
+          <div style={{ fontWeight: '700', color: '#f59e0b', marginBottom: '0.5rem' }}>⚙️ Pending: Run SQL Migration (1 min)</div>
+          <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '1rem' }}>Open <strong>Supabase → SQL Editor</strong> and run this to activate the 🐷 Tax Reserve feature:</div>
+          <pre style={{ background: '#0f0f0f', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '1rem', fontSize: '0.8rem', color: '#00d9ff', overflowX: 'auto' as const, margin: 0 }}>
+{`ALTER TABLE public.employees
+  ADD COLUMN IF NOT EXISTS tax_reserve_enabled BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS tax_reserve_per_period DECIMAL(10,2) DEFAULT 25.00;
+
+ALTER TABLE public.payroll
+  ADD COLUMN IF NOT EXISTS tax_withheld DECIMAL(10,2) DEFAULT 0.00,
+  ADD COLUMN IF NOT EXISTS net_amount DECIMAL(10,2);`}
+          </pre>
+          <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.75rem' }}>Also add <code style={{ color: '#f59e0b' }}>RESEND_API_KEY</code> in Vercel → Settings → Env Vars to activate email invites + signup alerts.</div>
+        </div>
+
         {/* Companies table */}
         <div style={S.tableCard}>
           <div style={S.tableHeader}>

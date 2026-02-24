@@ -20,6 +20,7 @@ export default function EmployeeDashboard() {
   const [taxAmount, setTaxAmount] = useState(25)
   const [taxSaving, setTaxSaving] = useState(false)
   const [taxSaved, setTaxSaved] = useState(false)
+  const [taxMigrationNeeded, setTaxMigrationNeeded] = useState(false)
 
   const getSession = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -150,14 +151,20 @@ export default function EmployeeDashboard() {
     setTaxSaving(true)
     const session = await getSession()
     if (!session) return
-    await fetch('/api/employee/settings', {
+    const res = await fetch('/api/employee/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ tax_reserve_enabled: taxEnabled, tax_reserve_per_period: taxAmount }),
     })
+    const json = await res.json()
     setTaxSaving(false)
-    setTaxSaved(true)
-    setTimeout(() => setTaxSaved(false), 3000)
+    if (json.migration_needed) {
+      setTaxMigrationNeeded(true)
+    } else {
+      setTaxSaved(true)
+      setTaxMigrationNeeded(false)
+      setTimeout(() => setTaxSaved(false), 3000)
+    }
   }
 
   const handleLogout = async () => {
@@ -551,9 +558,14 @@ export default function EmployeeDashboard() {
                     {taxSaved ? '✓ Saved!' : taxSaving ? 'Saving...' : 'Save Settings'}
                   </button>
                 </div>
-                {taxEnabled && (
+                {taxEnabled && !taxMigrationNeeded && (
                   <div style={{ marginTop: '1rem', padding: '0.875rem', background: 'rgba(247,159,11,0.08)', border: '1px solid rgba(247,159,11,0.2)', borderRadius: '8px', fontSize: '0.8rem', color: '#f59e0b' }}>
                     💰 <strong>${taxAmount}</strong> will be set aside from each approved paycheck. This money is yours — it just stays earmarked so you have it when tax season comes.
+                  </div>
+                )}
+                {taxMigrationNeeded && (
+                  <div style={{ marginTop: '1rem', padding: '0.875rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', fontSize: '0.8rem', color: '#ef4444' }}>
+                    ⚙️ Feature coming soon — your admin is enabling this shortly.
                   </div>
                 )}
               </div>
