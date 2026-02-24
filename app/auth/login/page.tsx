@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
 
 function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
-  
-  const [email, setEmail] = useState('')
+
+  const [email, setEmail] = useState(searchParams.get('email') || '')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -19,127 +20,189 @@ function LoginForm() {
     setError('')
 
     try {
-      // Authenticate with Supabase
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
       if (signInError) throw signInError
       if (!data.user) throw new Error('Login failed')
 
-      // Small delay to ensure session is set
-      await new Promise(r => setTimeout(r, 500))
+      // Check user_type from DB and redirect accordingly
+      const { data: userData } = await supabase
+        .from('users')
+        .select('user_type')
+        .eq('id', data.user.id)
+        .single()
 
-      // Redirect to dashboard
-      router.push('/owner/dashboard')
+      if (userData?.user_type === 'employee') {
+        router.push('/employee/dashboard')
+      } else {
+        router.push('/owner/dashboard')
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed')
       setLoading(false)
     }
   }
 
-  return (
-    <div style={{
-      background: '#0a0a0a',
+  const styles = {
+    page: {
+      background: '#0f0f0f',
       minHeight: '100vh',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '2rem',
       color: '#fff',
-      fontFamily: 'system-ui'
-    }}>
-      <div style={{
-        background: 'rgba(255,255,255,0.05)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: '1rem',
-        padding: '2rem',
-        maxWidth: '500px',
-        width: '100%'
-      }}>
-        <h1 style={{marginBottom: '2rem', textAlign: 'center'}}>⏱️ TimeClok Log In</h1>
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    } as React.CSSProperties,
+    card: {
+      background: '#1a1a1a',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: '12px',
+      padding: '2.5rem',
+      maxWidth: '460px',
+      width: '100%',
+    } as React.CSSProperties,
+    logo: {
+      textAlign: 'center' as const,
+      marginBottom: '2rem',
+    },
+    title: {
+      fontSize: '1.75rem',
+      fontWeight: '800',
+      margin: 0,
+      background: 'linear-gradient(135deg, #00d9ff, #0099cc)',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+    } as React.CSSProperties,
+    subtitle: { color: '#999', margin: '0.5rem 0 0', fontSize: '0.875rem' },
+    label: { display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#ccc' },
+    input: {
+      width: '100%',
+      padding: '0.75rem 1rem',
+      background: 'rgba(255,255,255,0.06)',
+      border: '1px solid rgba(255,255,255,0.12)',
+      color: '#fff',
+      borderRadius: '8px',
+      boxSizing: 'border-box' as const,
+      fontSize: '1rem',
+      outline: 'none',
+      transition: 'border-color 0.2s',
+    },
+    btn: {
+      width: '100%',
+      padding: '0.875rem',
+      background: '#00d9ff',
+      color: '#000',
+      border: 'none',
+      borderRadius: '8px',
+      fontWeight: '700',
+      fontSize: '1rem',
+      cursor: 'pointer',
+      marginBottom: '1rem',
+      transition: 'opacity 0.2s',
+    } as React.CSSProperties,
+    error: {
+      background: 'rgba(239,68,68,0.15)',
+      border: '1px solid rgba(239,68,68,0.3)',
+      color: '#ef4444',
+      padding: '0.875rem',
+      borderRadius: '8px',
+      marginBottom: '1rem',
+      fontSize: '0.875rem',
+    },
+    demoBox: {
+      background: 'rgba(0,217,255,0.06)',
+      border: '1px solid rgba(0,217,255,0.2)',
+      borderRadius: '8px',
+      padding: '1rem',
+      marginBottom: '1.5rem',
+    },
+    demoTitle: { fontSize: '0.75rem', color: '#00d9ff', fontWeight: '700', marginBottom: '0.5rem', textTransform: 'uppercase' as const, letterSpacing: '0.05em' },
+    demoRow: { fontSize: '0.8rem', color: '#ccc', marginBottom: '0.25rem' },
+  }
+
+  const fillDemo = (type: 'owner' | 'employee') => {
+    if (type === 'owner') {
+      setEmail('demo.owner@timeclok.com')
+      setPassword('Demo1234!')
+    } else {
+      setEmail('demo.employee@timeclok.com')
+      setPassword('Demo1234!')
+    }
+  }
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.card}>
+        <div style={styles.logo}>
+          <h1 style={styles.title}>⏱ TimeClok</h1>
+          <p style={styles.subtitle}>Employee Time Tracking</p>
+        </div>
+
+        {/* Demo credentials */}
+        <div style={styles.demoBox}>
+          <div style={styles.demoTitle}>🎯 Demo Accounts</div>
+          <div style={styles.demoRow}>
+            <strong style={{ color: '#00d9ff' }}>Owner:</strong>{' '}
+            <span
+              onClick={() => fillDemo('owner')}
+              style={{ cursor: 'pointer', textDecoration: 'underline', color: '#aaa' }}
+            >
+              demo.owner@timeclok.com
+            </span>{' '}
+            / Demo1234!
+          </div>
+          <div style={styles.demoRow}>
+            <strong style={{ color: '#22c55e' }}>Employee:</strong>{' '}
+            <span
+              onClick={() => fillDemo('employee')}
+              style={{ cursor: 'pointer', textDecoration: 'underline', color: '#aaa' }}
+            >
+              demo.employee@timeclok.com
+            </span>{' '}
+            / Demo1234!
+          </div>
+          <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '0.4rem' }}>Click email to auto-fill</div>
+        </div>
 
         <form onSubmit={handleLogin}>
-          <div style={{marginBottom: '1rem'}}>
-            <label style={{display: 'block', marginBottom: '0.5rem'}}>Email</label>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={styles.label}>Email</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                color: '#fff',
-                borderRadius: '0.5rem',
-                boxSizing: 'border-box',
-                fontSize: '1rem'
-              }}
+              style={styles.input}
+              placeholder="you@company.com"
             />
           </div>
 
-          <div style={{marginBottom: '1.5rem'}}>
-            <label style={{display: 'block', marginBottom: '0.5rem'}}>Password</label>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={styles.label}>Password</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                color: '#fff',
-                borderRadius: '0.5rem',
-                boxSizing: 'border-box',
-                fontSize: '1rem'
-              }}
+              style={styles.input}
+              placeholder="••••••••"
             />
           </div>
 
-          {error && (
-            <div style={{
-              background: 'rgba(255, 0, 110, 0.2)',
-              color: '#ff006e',
-              padding: '1rem',
-              borderRadius: '0.5rem',
-              marginBottom: '1rem',
-              fontSize: '0.875rem'
-            }}>
-              {error}
-            </div>
-          )}
+          {error && <div style={styles.error}>⚠️ {error}</div>}
 
           <button
             type="submit"
             disabled={loading}
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              background: '#00d9ff',
-              color: '#000',
-              border: 'none',
-              borderRadius: '0.5rem',
-              fontWeight: '600',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.6 : 1,
-              marginBottom: '1rem'
-            }}
+            style={{ ...styles.btn, opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
           >
-            {loading ? 'Logging in...' : 'Log In'}
+            {loading ? 'Signing in...' : 'Sign In →'}
           </button>
         </form>
 
-        <div style={{textAlign: 'center', color: '#999', fontSize: '0.875rem'}}>
+        <div style={{ textAlign: 'center', color: '#666', fontSize: '0.875rem' }}>
           Don't have an account?{' '}
-          <a
-            href="/auth/signup"
-            style={{color: '#00d9ff', textDecoration: 'none'}}
-          >
+          <a href="/auth/signup" style={{ color: '#00d9ff', textDecoration: 'none' }}>
             Sign up
           </a>
         </div>
@@ -151,14 +214,7 @@ function LoginForm() {
 export default function Login() {
   return (
     <Suspense fallback={
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        background: '#0a0a0a',
-        color: '#fff'
-      }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f0f0f', color: '#fff' }}>
         Loading...
       </div>
     }>

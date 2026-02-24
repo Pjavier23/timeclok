@@ -1,53 +1,65 @@
-import { createClient } from '@supabase/supabase-js'
+import { createServiceClient } from '../../../lib/supabase-server'
 
 export async function POST(request: Request) {
   try {
     const { email, password, companyName } = await request.json()
 
-    if (!email || !password) {
-      return Response.json({ error: 'Email and password required' }, { status: 400 })
+    if (!email || !password || !companyName) {
+      return Response.json({ error: 'Email, password, and company name are required' }, { status: 400 })
     }
 
-    const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tkljofxcndnwqyqrtrnx.supabase.co').trim()
-    const anonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim()
-    
-    const supabase = createClient(supabaseUrl, anonKey)
+    const supabase = createServiceClient()
 
-    // Sign up
-    console.log('Signing up user:', email)
-    const { data, error } = await supabase.auth.signUp({
+    // 1. Create auth user (email_confirm: true skips email confirmation)
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
+      email_confirm: true,
     })
 
-    if (error) throw error
-    if (!data.user) throw new Error('Signup failed')
-
-    const userId = data.user.id
-    console.log('User created:', userId)
-
-    // Create company if name provided
-    let companyId: string | null = null
-    if (companyName) {
-      const { data: companyData } = await supabase
-        .from('companies')
-        .insert([{ name: companyName, owner_id: userId }])
-        .select()
-        .single()
-      
-      companyId = companyData?.id || null
-      console.log('Company created:', companyId)
+    if (authError) {
+      return Response.json({ error: authError.message }, { status: 400 })
     }
+
+    const userId = authData.user.id
+
+    // 2. Insert owner into public.users (without company_id first)
+    const { error: userError } = await supabase.from('users').insert([{
+      id: userId,
+      email,
+      full_name: companyName,
+      user_type: 'owner',
+    }])
+
+    if (userError) {
+      console.error('User profile error:', userError)
+    }
+
+    // 3. Create company
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .insert([{ name: companyName, owner_id: userId }])
+      .select()
+      .single()
+
+    if (companyError) {
+      console.error('Company error:', companyError)
+      return Response.json({ error: 'Failed to create company: ' + companyError.message }, { status: 500 })
+    }
+
+    // 4. Update user with company_id
+    await supabase
+      .from('users')
+      .update({ company_id: company.id })
+      .eq('id', userId)
 
     return Response.json({
       success: true,
-      user: data.user,
-      session: data.session,
-      companyId,
-      message: 'Account created successfully. You can now log in.',
-    }, { status: 201 })
-  } catch (error: any) {
-    console.error('Signup error:', error)
-    return Response.json({ error: error.message || 'Signup failed' }, { status: 400 })
+      message: 'Account created. You can now log in.',
+      companyId: company.id,
+    })
+  } catch (err: any) {
+    console.error('Signup error:', err)
+    return Response.json({ error: err.message || 'Signup failed' }, { status: 500 })
   }
 }

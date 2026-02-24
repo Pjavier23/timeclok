@@ -1,190 +1,143 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
-import { 
-  clockInEmailTemplate, 
-  clockOutEmailTemplate, 
-  sendEmailNotification 
-} from '../../lib/email'
-import { generateEarningsReport, downloadCSV } from '../../lib/export'
 
 export default function EmployeeDashboard() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [user, setUser] = useState<any>(null)
-  const [employee, setEmployee] = useState<any>(null)
-  const [timeEntries, setTimeEntries] = useState<any[]>([])
-  const [activeTab, setActiveTab] = useState<'clock' | 'earnings' | 'profile'>('clock')
-  const [isClockedIn, setIsClockedIn] = useState(false)
-  const [currentSession, setCurrentSession] = useState<any>(null)
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [warning, setWarning] = useState('')
+  const [activeTab, setActiveTab] = useState<'clock' | 'history' | 'earnings'>('clock')
+  const [data, setData] = useState<any>(null)
+  const [clockLoading, setClockLoading] = useState(false)
+  const [elapsed, setElapsed] = useState(0) // seconds since clock in
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  useEffect(() => {
-    const initDashboard = async () => {
-      try {
-        // Check for demo mode FIRST before any auth
-        const isDemo = localStorage.getItem('demo_mode') === 'true'
-        if (isDemo) {
-          const demoEmail = localStorage.getItem('user_email') || 'john@timeclok.test'
-          setUser({ id: 'demo-emp', email: demoEmail })
-          setEmployee({ hourly_rate: 25, employee_type: 'contractor', id: 'demo-emp-1' })
-          setTimeEntries([
-            {
-              id: '1',
-              clock_in: new Date(Date.now() - 8 * 3600000).toISOString(),
-              clock_out: new Date(Date.now() - 4 * 3600000).toISOString(),
-              hours_worked: 4,
-              latitude: 38.9072,
-              longitude: -77.0369
-            },
-            {
-              id: '2',
-              clock_in: new Date(Date.now() - 24 * 3600000).toISOString(),
-              clock_out: new Date(Date.now() - 16 * 3600000).toISOString(),
-              hours_worked: 8,
-              latitude: 38.9072,
-              longitude: -77.0369
-            }
-          ])
-          setLoading(false)
-          setIsClockedIn(false)
-          return
-        }
+  const getSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    return session
+  }
 
-        // Check auth
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-          router.push('/')
-          return
-        }
-        setUser(user)
-
-        // Fetch employee profile
-        const { data: empData, error: empError } = await supabase
-          .from('employees')
-          .select('*')
-          .eq('user_id', user.id)
-          .single()
-
-        if (empError && empError.code !== 'PGRST116') throw empError
-        setEmployee(empData || { hourly_rate: 25 })
-
-        // Fetch time entries
-        if (empData?.id) {
-          const { data: entries, error: entError } = await supabase
-            .from('time_entries')
-            .select('*')
-            .eq('employee_id', empData.id)
-            .order('clock_in', { ascending: false })
-
-          if (entError) throw entError
-          setTimeEntries(entries || [])
-
-          // Check if currently clocked in
-          const active = entries?.find(e => !e.clock_out)
-          if (active) {
-            setIsClockedIn(true)
-            setCurrentSession(active)
-          }
-        }
-      } catch (err: any) {
-        setError(err.message || 'Failed to load dashboard')
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
+  const fetchData = useCallback(async () => {
+    const session = await getSession()
+    if (!session) {
+      router.push('/auth/login')
+      return
     }
 
-    initDashboard()
+    const res = await fetch('/api/employee/data', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+
+    if (res.status === 401) {
+      router.push('/auth/login')
+      return
+    }
+
+    const json = await res.json()
+    if (json.error) {
+      setError(json.error)
+    } else {
+      setData(json)
+    }
+    setLoading(false)
   }, [])
 
-  const getLocation = async (): Promise<{ lat: number; lng: number } | null> => {
+  useEffect(() => { fetchData() }, [fetchData])
+
+  // Live timer for active session
+  useEffect(() => {
+    if (data?.activeEntry) {
+      const start = new Date(data.activeEntry.clock_in).getTime()
+      const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000))
+      tick()
+      timerRef.current = setInterval(tick, 1000)
+    } else {
+      setElapsed(0)
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [data?.activeEntry])
+
+  const formatElapsed = (secs: number) => {
+    const h = Math.floor(secs / 3600)
+    const m = Math.floor((secs % 3600) / 60)
+    const s = secs % 60
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
+
+  const getLocation = (): Promise<{ lat: number; lng: number } | null> => {
     return new Promise((resolve) => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            resolve({
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            })
-          },
-          () => {
-            setError('Could not access location. Please enable GPS.')
-            resolve(null)
-          }
-        )
+      if (!navigator.geolocation) {
+        resolve(null)
+        return
       }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => resolve(null),
+        { timeout: 5000 }
+      )
     })
   }
 
   const handleClockIn = async () => {
-    try {
-      setError('')
-      const loc = await getLocation()
-      if (!loc) return
+    setClockLoading(true)
+    setError('')
+    setWarning('')
 
-      if (!employee?.id) throw new Error('Employee profile not found')
-
-      const { data, error: err } = await supabase
-        .from('time_entries')
-        .insert([{
-          employee_id: employee.id,
-          clock_in: new Date().toISOString(),
-          latitude: loc.lat,
-          longitude: loc.lng,
-          approval_status: 'pending',
-        }])
-        .select()
-        .single()
-
-      if (err) throw err
-
-      setCurrentSession(data)
-      setIsClockedIn(true)
-      setLocation(loc)
-    } catch (err: any) {
-      setError(err.message || 'Failed to clock in')
+    const loc = await getLocation()
+    if (!loc) {
+      setWarning('⚠️ Location unavailable — clocking in without GPS')
     }
+
+    const session = await getSession()
+    if (!session) return
+
+    const res = await fetch('/api/employee/clock', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ action: 'clock_in', lat: loc?.lat, lng: loc?.lng }),
+    })
+
+    const json = await res.json()
+    if (json.error) {
+      setError(json.error)
+    } else {
+      await fetchData()
+    }
+    setClockLoading(false)
   }
 
   const handleClockOut = async () => {
-    try {
-      setError('')
-      if (!currentSession?.id) throw new Error('No active session')
+    setClockLoading(true)
+    setError('')
 
-      const clockInTime = new Date(currentSession.clock_in)
-      const clockOutTime = new Date()
-      const hoursWorked = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60)
+    const session = await getSession()
+    if (!session) return
 
-      const { error: err } = await supabase
-        .from('time_entries')
-        .update({
-          clock_out: clockOutTime.toISOString(),
-          hours_worked: parseFloat(hoursWorked.toFixed(2)),
-        })
-        .eq('id', currentSession.id)
+    const res = await fetch('/api/employee/clock', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ action: 'clock_out', entryId: data?.activeEntry?.id }),
+    })
 
-      if (err) throw err
-
-      setIsClockedIn(false)
-      setCurrentSession(null)
-
-      // Refresh entries
-      const { data: entries } = await supabase
-        .from('time_entries')
-        .select('*')
-        .eq('employee_id', employee.id)
-        .order('clock_in', { ascending: false })
-
-      setTimeEntries(entries || [])
-    } catch (err: any) {
-      setError(err.message || 'Failed to clock out')
+    const json = await res.json()
+    if (json.error) {
+      setError(json.error)
+    } else {
+      await fetchData()
     }
+    setClockLoading(false)
   }
 
   const handleLogout = async () => {
@@ -192,301 +145,334 @@ export default function EmployeeDashboard() {
     router.push('/')
   }
 
-  const totalHours = timeEntries
-    .filter(e => e.hours_worked)
-    .reduce((sum, e) => sum + (e.hours_worked || 0), 0)
-  const totalEarned = (totalHours * (employee?.hourly_rate || 0)).toFixed(2)
+  const S = {
+    page: { minHeight: '100vh', background: '#0f0f0f', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' } as React.CSSProperties,
+    header: {
+      background: '#0f0f0f',
+      borderBottom: '1px solid rgba(255,255,255,0.08)',
+      padding: '1rem 2rem',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      position: 'sticky' as const,
+      top: 0,
+      zIndex: 50,
+    },
+    logo: { fontSize: '1.4rem', fontWeight: '800', color: '#00d9ff', margin: 0 },
+    content: { padding: '1.5rem', maxWidth: '860px', margin: '0 auto' },
+    tabs: { display: 'flex', gap: '0', marginBottom: '2rem', borderBottom: '1px solid rgba(255,255,255,0.08)' },
+    tab: (active: boolean) => ({
+      padding: '0.75rem 1.5rem',
+      background: 'transparent',
+      border: 'none',
+      borderBottom: active ? '2px solid #00d9ff' : '2px solid transparent',
+      color: active ? '#00d9ff' : '#666',
+      fontWeight: active ? '700' : '500',
+      cursor: 'pointer',
+      marginBottom: '-1px',
+      fontSize: '0.9rem',
+    }) as React.CSSProperties,
+    clockCard: (isClockedIn: boolean) => ({
+      background: '#1a1a1a',
+      border: `1px solid ${isClockedIn ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.2)'}`,
+      borderRadius: '12px',
+      padding: '2.5rem',
+      textAlign: 'center' as const,
+      marginBottom: '1.5rem',
+      boxShadow: isClockedIn ? '0 0 40px rgba(34,197,94,0.08)' : 'none',
+    }),
+    statusDot: (on: boolean) => ({
+      width: '80px',
+      height: '80px',
+      borderRadius: '50%',
+      background: on ? '#22c55e' : '#ef4444',
+      margin: '0 auto 1.5rem',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '2rem',
+      boxShadow: on ? '0 0 30px rgba(34,197,94,0.4)' : '0 0 20px rgba(239,68,68,0.2)',
+    }) as React.CSSProperties,
+    timerDisplay: {
+      fontFamily: 'monospace',
+      fontSize: '3rem',
+      fontWeight: '800',
+      color: '#22c55e',
+      letterSpacing: '0.05em',
+      marginBottom: '0.5rem',
+    },
+    clockBtnIn: {
+      background: '#22c55e',
+      color: '#fff',
+      border: 'none',
+      padding: '1rem 3rem',
+      borderRadius: '100px',
+      fontWeight: '700',
+      fontSize: '1.1rem',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      boxShadow: '0 4px 20px rgba(34,197,94,0.3)',
+    },
+    clockBtnOut: {
+      background: '#ef4444',
+      color: '#fff',
+      border: 'none',
+      padding: '1rem 3rem',
+      borderRadius: '100px',
+      fontWeight: '700',
+      fontSize: '1.1rem',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      boxShadow: '0 4px 20px rgba(239,68,68,0.3)',
+    },
+    card: {
+      background: '#1a1a1a',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: '12px',
+      overflow: 'hidden',
+      marginBottom: '1.5rem',
+    } as React.CSSProperties,
+    statGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' },
+    statCard: (color: string) => ({
+      background: '#1a1a1a',
+      border: `1px solid rgba(255,255,255,0.08)`,
+      borderRadius: '12px',
+      padding: '1.25rem',
+      borderTop: `3px solid ${color}`,
+    }) as React.CSSProperties,
+    statLabel: { fontSize: '0.75rem', color: '#555', marginBottom: '0.5rem', textTransform: 'uppercase' as const, letterSpacing: '0.05em' },
+    statValue: { fontSize: '2rem', fontWeight: '800' },
+    entryRow: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr 1fr 1fr',
+      gap: '0',
+      padding: '1rem 1.5rem',
+      borderBottom: '1px solid rgba(255,255,255,0.04)',
+      fontSize: '0.875rem',
+    },
+    entryLabel: { fontSize: '0.7rem', color: '#555', marginBottom: '0.25rem', textTransform: 'uppercase' as const },
+    logoutBtn: {
+      background: 'rgba(239,68,68,0.1)',
+      border: '1px solid rgba(239,68,68,0.3)',
+      color: '#ef4444',
+      padding: '0.5rem 1rem',
+      borderRadius: '8px',
+      cursor: 'pointer',
+      fontWeight: '600',
+      fontSize: '0.875rem',
+    },
+  }
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0a0a0a', color: '#fff' }}>
-        <div>Loading dashboard...</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f0f0f', color: '#fff' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏱</div>
+          <div style={{ color: '#666' }}>Loading...</div>
+        </div>
       </div>
     )
   }
 
+  const { user, employee, timeEntries, payroll, activeEntry, stats } = data || {}
+  const isClockedIn = !!activeEntry
+
+  const formatDate = (ts: string) => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const formatTime = (ts: string) => new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+  const statusBadge = (s: string) => {
+    const map: Record<string, [string, string]> = {
+      pending: ['#f59e0b', 'rgba(245,158,11,0.1)'],
+      approved: ['#22c55e', 'rgba(34,197,94,0.1)'],
+      paid: ['#00d9ff', 'rgba(0,217,255,0.1)'],
+    }
+    const [color, bg] = map[s] || ['#999', 'rgba(255,255,255,0.1)']
+    return <span style={{ display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: '100px', fontSize: '0.75rem', fontWeight: '600', color, background: bg }}>{s}</span>
+  }
+
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff' }}>
-      {/* Header */}
-      <header style={{
-        background: 'rgba(10, 10, 10, 0.95)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        padding: '1.5rem 2rem',
-        position: 'fixed',
-        top: 0,
-        width: '100%',
-        zIndex: 50,
-      }}>
-        <div style={{
-          maxWidth: '1400px',
-          margin: '0 auto',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: '900' }}>⏱️ TimeClok</h1>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <span style={{ color: '#999', fontSize: '0.875rem' }}>{user?.email}</span>
-            <button
-              onClick={handleLogout}
-              style={{
-                background: 'rgba(255, 0, 110, 0.2)',
-                border: '1px solid rgba(255, 0, 110, 0.5)',
-                padding: '0.5rem 1rem',
-                borderRadius: '0.5rem',
-                color: '#ff006e',
-                cursor: 'pointer',
-                fontWeight: '600',
-              }}
-            >
-              Logout
-            </button>
-          </div>
+    <div style={S.page}>
+      <header style={S.header}>
+        <div style={S.logo}>⏱ TimeClok</div>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <span style={{ color: '#555', fontSize: '0.8rem' }}>{user?.email}</span>
+          <button onClick={handleLogout} style={S.logoutBtn}>Sign Out</button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <div style={{ marginTop: '80px', padding: '2rem' }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-          {error && <div style={{ background: 'rgba(255, 0, 110, 0.2)', color: '#ff006e', padding: '1rem', borderRadius: '0.5rem', marginBottom: '2rem' }}>{error}</div>}
+      <div style={S.content}>
+        {error && (
+          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '0.875rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.875rem' }}>
+            ⚠️ {error}
+          </div>
+        )}
+        {warning && (
+          <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', padding: '0.875rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.875rem' }}>
+            {warning}
+          </div>
+        )}
 
-          {/* Tabs */}
-          <div style={{
-            display: 'flex',
-            gap: '1rem',
-            marginBottom: '2rem',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-            paddingBottom: '1rem',
-          }}>
-            {(['clock', 'earnings', 'profile'] as const).map(tab => (
+        {/* Tabs */}
+        <div style={S.tabs}>
+          {(['clock', 'history', 'earnings'] as const).map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)} style={S.tab(activeTab === tab)}>
+              {tab === 'clock' && '⏰ '}
+              {tab === 'history' && '📋 '}
+              {tab === 'earnings' && '💵 '}
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* ── CLOCK TAB ── */}
+        {activeTab === 'clock' && (
+          <div>
+            <div style={S.clockCard(isClockedIn)}>
+              <div style={S.statusDot(isClockedIn)}>
+                {isClockedIn ? '✓' : '○'}
+              </div>
+
+              <div style={{ fontSize: '1.4rem', fontWeight: '700', marginBottom: '0.5rem' }}>
+                {isClockedIn ? 'You are clocked in' : 'You are clocked out'}
+              </div>
+
+              {isClockedIn && activeEntry && (
+                <div>
+                  <div style={S.timerDisplay}>{formatElapsed(elapsed)}</div>
+                  <div style={{ color: '#555', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+                    Since {formatTime(activeEntry.clock_in)}
+                    {activeEntry.latitude && (
+                      <span style={{ marginLeft: '0.75rem' }}>📍 {Number(activeEntry.latitude).toFixed(4)}, {Number(activeEntry.longitude).toFixed(4)}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!isClockedIn && (
+                <div style={{ color: '#555', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                </div>
+              )}
+
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={isClockedIn ? handleClockOut : handleClockIn}
+                disabled={clockLoading}
                 style={{
-                  padding: '0.75rem 1.5rem',
-                  background: activeTab === tab ? 'rgba(255, 0, 110, 0.1)' : 'transparent',
-                  border: activeTab === tab ? '2px solid #ff006e' : '2px solid transparent',
-                  color: activeTab === tab ? '#ff006e' : '#999',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  textTransform: 'capitalize',
+                  ...(isClockedIn ? S.clockBtnOut : S.clockBtnIn),
+                  opacity: clockLoading ? 0.6 : 1,
+                  cursor: clockLoading ? 'not-allowed' : 'pointer',
                 }}
               >
-                {tab}
+                {clockLoading ? '...' : isClockedIn ? 'Clock Out' : 'Clock In'}
               </button>
-            ))}
+            </div>
+
+            {/* Quick stats */}
+            <div style={S.statGrid}>
+              <div style={S.statCard('#00d9ff')}>
+                <div style={S.statLabel}>This Week</div>
+                <div style={{ ...S.statValue, color: '#00d9ff' }}>{stats?.weeklyHours ?? 0}h</div>
+              </div>
+              <div style={S.statCard('#22c55e')}>
+                <div style={S.statLabel}>Hourly Rate</div>
+                <div style={{ ...S.statValue, color: '#22c55e' }}>${stats?.hourlyRate?.toFixed(2) ?? '0.00'}</div>
+              </div>
+              <div style={S.statCard('#f59e0b')}>
+                <div style={S.statLabel}>Total Earned</div>
+                <div style={{ ...S.statValue, color: '#f59e0b' }}>${stats?.totalEarned?.toFixed(2) ?? '0.00'}</div>
+              </div>
+            </div>
           </div>
+        )}
 
-          {/* Clock In/Out Tab */}
-          {activeTab === 'clock' && (
-            <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '2rem' }}>Time Tracking</h2>
-
-              {/* Clock Status */}
-              <div style={{
-                background: isClockedIn ? 'rgba(100, 200, 100, 0.1)' : 'rgba(255, 100, 100, 0.1)',
-                border: isClockedIn ? '2px solid rgba(100, 200, 100, 0.3)' : '2px solid rgba(255, 100, 100, 0.3)',
-                padding: '2rem',
-                borderRadius: '1rem',
-                textAlign: 'center',
-                marginBottom: '2rem',
-              }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>
-                  {isClockedIn ? '🟢' : '🔴'}
-                </div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' }}>
-                  {isClockedIn ? 'Clocked In' : 'Clocked Out'}
-                </div>
-                {isClockedIn && currentSession && (
-                  <div style={{ color: '#999', fontSize: '0.875rem', marginBottom: '1rem' }}>
-                    Since {new Date(currentSession.clock_in).toLocaleTimeString()}
-                  </div>
-                )}
-                {location && (
-                  <div style={{ color: '#999', fontSize: '0.75rem', marginTop: '1rem' }}>
-                    📍 {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
-                  </div>
-                )}
+        {/* ── HISTORY TAB ── */}
+        {activeTab === 'history' && (
+          <div>
+            <div style={S.card}>
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', fontWeight: '700' }}>
+                Time History ({timeEntries?.length ?? 0} entries)
               </div>
-
-              {/* Clock Buttons */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '3rem' }}>
-                <button
-                  onClick={handleClockIn}
-                  disabled={isClockedIn}
-                  style={{
-                    background: isClockedIn ? 'rgba(0, 217, 255, 0.2)' : '#00d9ff',
-                    color: isClockedIn ? '#999' : '#000',
-                    border: 'none',
-                    padding: '2rem',
-                    borderRadius: '1rem',
-                    fontWeight: '700',
-                    fontSize: '1.125rem',
-                    cursor: isClockedIn ? 'not-allowed' : 'pointer',
-                    opacity: isClockedIn ? 0.5 : 1,
-                  }}
-                >
-                  Clock In
-                </button>
-                <button
-                  onClick={handleClockOut}
-                  disabled={!isClockedIn}
-                  style={{
-                    background: !isClockedIn ? 'rgba(255, 0, 110, 0.2)' : '#ff006e',
-                    color: !isClockedIn ? '#999' : '#fff',
-                    border: 'none',
-                    padding: '2rem',
-                    borderRadius: '1rem',
-                    fontWeight: '700',
-                    fontSize: '1.125rem',
-                    cursor: !isClockedIn ? 'not-allowed' : 'pointer',
-                    opacity: !isClockedIn ? 0.5 : 1,
-                  }}
-                >
-                  Clock Out
-                </button>
-              </div>
-
-              {/* Time Entries */}
-              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', marginBottom: '1rem' }}>Recent Time Entries</h3>
-              {timeEntries.length === 0 ? (
-                <div style={{ color: '#999', textAlign: 'center', padding: '2rem' }}>No time entries yet.</div>
+              {timeEntries?.length === 0 ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#555' }}>No entries yet. Clock in to get started.</div>
               ) : (
-                <div style={{ display: 'grid', gap: '1rem' }}>
-                  {timeEntries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        padding: '1.5rem',
-                        borderRadius: '0.75rem',
-                      }}
-                    >
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '2rem' }}>
-                        <div>
-                          <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '0.5rem' }}>Date</div>
-                          <div style={{ fontWeight: '600' }}>
-                            {new Date(entry.clock_in).toLocaleDateString()}
-                          </div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '0.5rem' }}>Clock In</div>
-                          <div style={{ fontWeight: '600' }}>
-                            {new Date(entry.clock_in).toLocaleTimeString()}
-                          </div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '0.5rem' }}>Clock Out</div>
-                          <div style={{ fontWeight: '600' }}>
-                            {entry.clock_out ? new Date(entry.clock_out).toLocaleTimeString() : '—'}
-                          </div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '0.5rem' }}>Hours</div>
-                          <div style={{ fontWeight: '600' }}>{entry.hours_worked?.toFixed(2) || '—'}</div>
-                        </div>
+                <>
+                  <div style={{ padding: '0.875rem 1.5rem', background: 'rgba(255,255,255,0.02)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0' }}>
+                    {['Date', 'Clock In', 'Clock Out', 'Hours'].map(h => (
+                      <div key={h} style={{ fontSize: '0.7rem', color: '#555', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</div>
+                    ))}
+                  </div>
+                  {timeEntries.map((entry: any) => (
+                    <div key={entry.id} style={S.entryRow}>
+                      <div>
+                        <div style={S.entryLabel}>Date</div>
+                        <div style={{ fontWeight: '500' }}>{formatDate(entry.clock_in)}</div>
+                      </div>
+                      <div>
+                        <div style={S.entryLabel}>In</div>
+                        <div>{formatTime(entry.clock_in)}</div>
+                      </div>
+                      <div>
+                        <div style={S.entryLabel}>Out</div>
+                        <div>{entry.clock_out ? formatTime(entry.clock_out) : <span style={{ color: '#22c55e', fontSize: '0.8rem' }}>● Active</span>}</div>
+                      </div>
+                      <div>
+                        <div style={S.entryLabel}>Hours</div>
+                        <div style={{ fontWeight: '600' }}>{entry.hours_worked?.toFixed(2) ?? '—'}</div>
                       </div>
                     </div>
                   ))}
-                </div>
+                </>
               )}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Earnings Tab */}
-          {activeTab === 'earnings' && (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>Your Earnings</h2>
-                <button
-                  onClick={() => {
-                    const report = generateEarningsReport(user?.email || 'Employee', timeEntries, employee?.hourly_rate || 0)
-                    downloadCSV(report, `earnings-report-${new Date().toISOString().split('T')[0]}.csv`)
-                  }}
-                  style={{
-                    background: '#00d9ff',
-                    color: '#000',
-                    border: 'none',
-                    padding: '0.75rem 1.5rem',
-                    borderRadius: '0.5rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                  }}
-                >
-                  📥 Export Report
-                </button>
+        {/* ── EARNINGS TAB ── */}
+        {activeTab === 'earnings' && (
+          <div>
+            {/* Summary */}
+            <div style={S.statGrid}>
+              <div style={S.statCard('#22c55e')}>
+                <div style={S.statLabel}>Total Hours</div>
+                <div style={{ ...S.statValue, color: '#22c55e' }}>{stats?.totalHours ?? 0}h</div>
               </div>
-
-              {/* Stats */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                gap: '2rem',
-                marginBottom: '2rem',
-              }}>
-                <div style={{
-                  background: 'rgba(0, 217, 255, 0.1)',
-                  border: '1px solid rgba(0, 217, 255, 0.3)',
-                  padding: '2rem',
-                  borderRadius: '1rem',
-                }}>
-                  <div style={{ fontSize: '0.875rem', color: '#00d9ff', marginBottom: '0.5rem' }}>Total Hours</div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: '900' }}>{totalHours.toFixed(1)}</div>
-                </div>
-                <div style={{
-                  background: 'rgba(255, 221, 0, 0.1)',
-                  border: '1px solid rgba(255, 221, 0, 0.3)',
-                  padding: '2rem',
-                  borderRadius: '1rem',
-                }}>
-                  <div style={{ fontSize: '0.875rem', color: '#ffdd00', marginBottom: '0.5rem' }}>Hourly Rate</div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: '900' }}>${employee?.hourly_rate?.toFixed(2) || '0.00'}</div>
-                </div>
-                <div style={{
-                  background: 'rgba(100, 200, 100, 0.1)',
-                  border: '1px solid rgba(100, 200, 100, 0.3)',
-                  padding: '2rem',
-                  borderRadius: '1rem',
-                }}>
-                  <div style={{ fontSize: '0.875rem', color: '#64c864', marginBottom: '0.5rem' }}>Total Earned</div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: '900' }}>${totalEarned}</div>
-                </div>
+              <div style={S.statCard('#00d9ff')}>
+                <div style={S.statLabel}>Hourly Rate</div>
+                <div style={{ ...S.statValue, color: '#00d9ff' }}>${stats?.hourlyRate?.toFixed(2) ?? '0.00'}</div>
+              </div>
+              <div style={S.statCard('#f59e0b')}>
+                <div style={S.statLabel}>Total Earned</div>
+                <div style={{ ...S.statValue, color: '#f59e0b' }}>${stats?.totalEarned?.toFixed(2) ?? '0.00'}</div>
               </div>
             </div>
-          )}
 
-          {/* Profile Tab */}
-          {activeTab === 'profile' && (
-            <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '2rem' }}>Your Profile</h2>
-
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                padding: '2rem',
-                borderRadius: '1rem',
-                maxWidth: '600px',
-              }}>
-                <div style={{ display: 'grid', gap: '1.5rem' }}>
-                  <div>
-                    <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '0.5rem' }}>Email</div>
-                    <div style={{ fontWeight: '600' }}>{user?.email}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '0.5rem' }}>Hourly Rate</div>
-                    <div style={{ fontWeight: '600' }}>${employee?.hourly_rate?.toFixed(2) || 'N/A'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.875rem', color: '#999', marginBottom: '0.5rem' }}>Employee Type</div>
-                    <div style={{ fontWeight: '600' }}>{employee?.employee_type || 'Employee'}</div>
-                  </div>
-                </div>
+            {/* Payroll records */}
+            <div style={S.card}>
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', fontWeight: '700' }}>
+                Payroll Records
               </div>
+              {payroll?.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#555' }}>No payroll records yet</div>
+              ) : (
+                <>
+                  <div style={{ padding: '0.875rem 1.5rem', background: 'rgba(255,255,255,0.02)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '0' }}>
+                    {['Week', 'Hours', 'Rate', 'Amount', 'Status'].map(h => (
+                      <div key={h} style={{ fontSize: '0.7rem', color: '#555', fontWeight: '600', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>{h}</div>
+                    ))}
+                  </div>
+                  {payroll.map((pr: any) => (
+                    <div key={pr.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '0', padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '0.875rem' }}>
+                      <div>{pr.week_ending}</div>
+                      <div>{pr.total_hours}h</div>
+                      <div>${pr.hourly_rate?.toFixed(2)}</div>
+                      <div style={{ fontWeight: '700', color: '#22c55e' }}>${pr.total_amount?.toFixed(2)}</div>
+                      <div>{statusBadge(pr.status)}</div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )
