@@ -48,8 +48,8 @@ export async function POST(request: Request) {
       // Parse Supabase error messages
       let errorMsg = signUpError.message
 
-      if (errorMsg.includes('already registered')) {
-        errorMsg = 'Email already registered. Please log in.'
+      if (errorMsg.includes('already registered') || errorMsg.includes('already been registered') || errorMsg.includes('User already registered')) {
+        errorMsg = 'EMAIL_EXISTS'
       } else if (errorMsg.includes('rate limit')) {
         errorMsg = 'Too many signup attempts. Please wait a few minutes.'
       } else if (errorMsg.includes('password')) {

@@ -212,16 +212,23 @@ function SignUpForm() {
           </div>
 
           {error && (
-            <div style={{
-              background: 'rgba(255, 0, 110, 0.2)',
-              color: '#ff006e',
-              padding: '1rem',
-              borderRadius: '0.5rem',
-              marginBottom: '1rem',
-              fontSize: '0.875rem'
-            }}>
-              {error}
-            </div>
+            error === 'EMAIL_EXISTS' ? (
+              <div style={{ background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.25)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>👋</div>
+                <div style={{ fontWeight: '700', color: '#fff', marginBottom: '0.25rem' }}>Account already exists!</div>
+                <div style={{ fontSize: '0.82rem', color: '#888', marginBottom: '1rem' }}>This email is already registered. Just log in instead.</div>
+                <button
+                  onClick={() => router.push(`/auth/login?email=${encodeURIComponent(email)}`)}
+                  style={{ background: '#00d9ff', color: '#000', border: 'none', borderRadius: '8px', padding: '0.625rem 1.5rem', fontWeight: '800', cursor: 'pointer', fontSize: '0.9rem', width: '100%' }}
+                >
+                  Log In Instead →
+                </button>
+              </div>
+            ) : (
+              <div style={{ background: 'rgba(255,0,110,0.12)', border: '1px solid rgba(255,0,110,0.3)', color: '#ff006e', padding: '1rem', borderRadius: '10px', marginBottom: '1rem', fontSize: '0.875rem' }}>
+                ⚠️ {error}
+              </div>
+            )
           )}
 
           <button
