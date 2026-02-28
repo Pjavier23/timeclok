@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
 
@@ -16,6 +16,14 @@ export default function OwnerDashboard() {
   const [data, setData] = useState<any>(null)
   const [copiedLink, setCopiedLink] = useState(false)
   const [payrollUpdating, setPayrollUpdating] = useState<string | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   // Feature 3: Bulk approve state
   const [bulkApproving, setBulkApproving] = useState(false)
@@ -332,98 +340,96 @@ export default function OwnerDashboard() {
   const pendingPayrollCount = (payroll || []).filter((p: any) => p.status === 'pending').length
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0f0f0f', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', display: 'flex', flexDirection: 'column' } as React.CSSProperties}>
+    <div style={{ minHeight: '100vh', background: '#0f0f0f', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', display: 'flex', flexDirection: 'column', overflowX: 'hidden' } as React.CSSProperties}>
 
       {/* ── TOP NAV ── */}
-      <header style={{ background: '#0f0f0f', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0 1.5rem', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 } as React.CSSProperties}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.2rem' }}>⏱</span>
-            <span style={{ fontSize: '1.1rem', fontWeight: '900', background: 'linear-gradient(135deg, #00d9ff, #0099cc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } as React.CSSProperties}>TimeClok</span>
-          </div>
-          {company && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+      <header style={{ background: '#0f0f0f', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0 1rem', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, boxSizing: 'border-box', width: '100%' } as React.CSSProperties}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+          <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>⏱</span>
+          <span style={{ fontSize: '1.1rem', fontWeight: '900', background: 'linear-gradient(135deg, #00d9ff, #0099cc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', flexShrink: 0 } as React.CSSProperties}>TimeClok</span>
+          {company && !isMobile && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
               <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '1rem' }}>›</span>
-              <span style={{ fontSize: '0.8rem', color: '#555', fontWeight: '600' }}>{company.name}</span>
+              <span style={{ fontSize: '0.8rem', color: '#555', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' } as React.CSSProperties}>{company.name}</span>
             </div>
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
           {activeSessions.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', padding: '0.3rem 0.75rem', borderRadius: '100px' }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', display: 'block' }} />
-              <span style={{ fontSize: '0.75rem', color: '#22c55e', fontWeight: '700' }}>{activeSessions.length} working now</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', padding: '0.25rem 0.6rem', borderRadius: '100px', flexShrink: 0 }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', display: 'block', flexShrink: 0 }} />
+              <span style={{ fontSize: '0.72rem', color: '#22c55e', fontWeight: '700' }}>{activeSessions.length} {isMobile ? '' : 'working now'}</span>
             </div>
           )}
           {pendingPayrollCount > 0 && (
-            <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', padding: '0.3rem 0.75rem', borderRadius: '100px', fontSize: '0.75rem', color: '#f59e0b', fontWeight: '700', cursor: 'pointer' }} onClick={() => setActiveTab('payroll')}>
-              ⚠ {pendingPayrollCount} pending
+            <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', padding: '0.25rem 0.6rem', borderRadius: '100px', fontSize: '0.72rem', color: '#f59e0b', fontWeight: '700', cursor: 'pointer', flexShrink: 0 }} onClick={() => setActiveTab('payroll')}>
+              ⚠ {pendingPayrollCount}
             </div>
           )}
           <button
             onClick={handleLogout}
-            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#666', padding: '0.4rem 0.875rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.8rem' }}
+            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#666', padding: isMobile ? '0.35rem 0.5rem' : '0.4rem 0.875rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.8rem', flexShrink: 0 } as React.CSSProperties}
             onMouseEnter={e => { (e.currentTarget).style.borderColor = 'rgba(239,68,68,0.4)'; (e.currentTarget).style.color = '#ef4444' }}
             onMouseLeave={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget).style.color = '#666' }}
           >
-            Sign Out
+            {isMobile ? '↩' : 'Sign Out'}
           </button>
         </div>
       </header>
 
-      <div style={{ display: 'flex', flex: 1 } as React.CSSProperties}>
-        {/* ── SIDEBAR ── */}
-        <nav style={{ width: '220px', borderRight: '1px solid rgba(255,255,255,0.06)', padding: '1.25rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', flexShrink: 0, background: '#0c0c0c' } as React.CSSProperties}>
-          {navItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.625rem',
-                padding: '0.75rem 1rem',
-                borderRadius: '10px',
-                border: 'none',
-                background: activeTab === item.id ? 'rgba(0,217,255,0.08)' : 'transparent',
-                color: activeTab === item.id ? '#00d9ff' : '#666',
-                fontWeight: activeTab === item.id ? '700' : '500',
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                textAlign: 'left',
-                width: '100%',
-                transition: 'all 0.15s',
-                borderLeft: activeTab === item.id ? '3px solid #00d9ff' : '3px solid transparent',
-              } as React.CSSProperties}
-              onMouseEnter={e => { if (activeTab !== item.id) { (e.currentTarget).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget).style.color = '#999' } }}
-              onMouseLeave={e => { if (activeTab !== item.id) { (e.currentTarget).style.background = 'transparent'; (e.currentTarget).style.color = '#666' } }}
-            >
-              <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center' } as React.CSSProperties}>{item.icon}</span>
-              {item.label}
-              {item.id === 'payroll' && pendingPayrollCount > 0 && (
-                <span style={{ marginLeft: 'auto', background: '#f59e0b', color: '#000', fontSize: '0.65rem', fontWeight: '800', padding: '0.15rem 0.45rem', borderRadius: '100px' }}>
-                  {pendingPayrollCount}
-                </span>
-              )}
-            </button>
-          ))}
-
-          <div style={{ flex: 1 }} />
-
-          <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(0,217,255,0.05)', border: '1px solid rgba(0,217,255,0.12)', borderRadius: '10px' }}>
-            <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '700', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Grow your team</div>
-            <button
-              onClick={() => { setShowInviteModal(true); setInviteResult(null) }}
-              style={{ width: '100%', padding: '0.5rem', background: '#00d9ff', color: '#000', border: 'none', borderRadius: '7px', fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem' }}
-            >
-              + Invite Employee
-            </button>
-          </div>
-        </nav>
+      <div style={{ display: 'flex', flex: 1, minWidth: 0 } as React.CSSProperties}>
+        {/* ── SIDEBAR (desktop only) ── */}
+        {!isMobile && (
+          <nav style={{ width: '220px', borderRight: '1px solid rgba(255,255,255,0.06)', padding: '1.25rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', flexShrink: 0, background: '#0c0c0c' } as React.CSSProperties}>
+            {navItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.625rem',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: activeTab === item.id ? 'rgba(0,217,255,0.08)' : 'transparent',
+                  color: activeTab === item.id ? '#00d9ff' : '#666',
+                  fontWeight: activeTab === item.id ? '700' : '500',
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  width: '100%',
+                  transition: 'all 0.15s',
+                  borderLeft: activeTab === item.id ? '3px solid #00d9ff' : '3px solid transparent',
+                } as React.CSSProperties}
+                onMouseEnter={e => { if (activeTab !== item.id) { (e.currentTarget).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget).style.color = '#999' } }}
+                onMouseLeave={e => { if (activeTab !== item.id) { (e.currentTarget).style.background = 'transparent'; (e.currentTarget).style.color = '#666' } }}
+              >
+                <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center' } as React.CSSProperties}>{item.icon}</span>
+                {item.label}
+                {item.id === 'payroll' && pendingPayrollCount > 0 && (
+                  <span style={{ marginLeft: 'auto', background: '#f59e0b', color: '#000', fontSize: '0.65rem', fontWeight: '800', padding: '0.15rem 0.45rem', borderRadius: '100px' }}>
+                    {pendingPayrollCount}
+                  </span>
+                )}
+              </button>
+            ))}
+            <div style={{ flex: 1 }} />
+            <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(0,217,255,0.05)', border: '1px solid rgba(0,217,255,0.12)', borderRadius: '10px' }}>
+              <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '700', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Grow your team</div>
+              <button
+                onClick={() => { setShowInviteModal(true); setInviteResult(null) }}
+                style={{ width: '100%', padding: '0.5rem', background: '#00d9ff', color: '#000', border: 'none', borderRadius: '7px', fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem' }}
+              >
+                + Invite Employee
+              </button>
+            </div>
+          </nav>
+        )}
 
         {/* ── MAIN CONTENT ── */}
-        <main style={{ flex: 1, padding: '2rem', overflowY: 'auto', minWidth: 0 } as React.CSSProperties}>
+        <main style={{ flex: 1, padding: isMobile ? '1.25rem 1rem 5rem' : '2rem', overflowY: 'auto', minWidth: 0, width: '100%', boxSizing: 'border-box' } as React.CSSProperties}>
           {error && (
             <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', padding: '1rem 1.25rem', borderRadius: '10px', marginBottom: '1.5rem', fontSize: '0.875rem' }}>
               ⚠️ {error}
@@ -831,6 +837,51 @@ export default function OwnerDashboard() {
           )}
         </main>
       </div>
+
+      {/* ── MOBILE BOTTOM NAV ── */}
+      {isMobile && (
+        <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#0c0c0c', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', zIndex: 100, paddingBottom: 'env(safe-area-inset-bottom, 0px)' } as React.CSSProperties}>
+          {navItems.map(item => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              style={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.2rem',
+                padding: '0.625rem 0.25rem',
+                border: 'none',
+                background: 'transparent',
+                color: activeTab === item.id ? '#00d9ff' : '#555',
+                cursor: 'pointer',
+                position: 'relative',
+              } as React.CSSProperties}
+            >
+              <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>{item.icon}</span>
+              <span style={{ fontSize: '0.6rem', fontWeight: activeTab === item.id ? '800' : '500', letterSpacing: '0.03em' }}>{item.label}</span>
+              {item.id === 'payroll' && pendingPayrollCount > 0 && (
+                <span style={{ position: 'absolute', top: '6px', right: 'calc(50% - 18px)', background: '#f59e0b', color: '#000', fontSize: '0.55rem', fontWeight: '900', padding: '0.1rem 0.35rem', borderRadius: '100px', lineHeight: 1.4 } as React.CSSProperties}>
+                  {pendingPayrollCount}
+                </span>
+              )}
+              {activeTab === item.id && (
+                <span style={{ position: 'absolute', top: 0, left: '25%', right: '25%', height: '2px', background: '#00d9ff', borderRadius: '0 0 2px 2px' } as React.CSSProperties} />
+              )}
+            </button>
+          ))}
+          {/* Invite button */}
+          <button
+            onClick={() => { setShowInviteModal(true); setInviteResult(null) }}
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.2rem', padding: '0.625rem 0.25rem', border: 'none', background: 'transparent', color: '#00d9ff', cursor: 'pointer' } as React.CSSProperties}
+          >
+            <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>➕</span>
+            <span style={{ fontSize: '0.6rem', fontWeight: '700' }}>Invite</span>
+          </button>
+        </nav>
+      )}
 
       {/* ── INVITE MODAL ── */}
       {showInviteModal && (
