@@ -597,14 +597,37 @@ export default function OwnerDashboard() {
                   </div>
                 ) : (
                   <>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                      {['Employee', 'Email', 'Rate', 'Type', 'Since'].map(h => (
-                        <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
-                      ))}
-                    </div>
+                    {!isMobile && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        {['Employee', 'Email', 'Rate', 'Type', 'Since'].map(h => (
+                          <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
+                        ))}
+                      </div>
+                    )}
                     {employees.map((emp: any, i: number) => {
                       const isActive = activeSessions.some((e: any) => e.employee_id === emp.id || e.employees?.id === emp.id)
-                      return (
+                      return isMobile ? (
+                        /* Mobile: card layout */
+                        <div key={emp.id} style={{ padding: '1rem', borderBottom: i < employees.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                            <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: `linear-gradient(135deg, ${isActive ? '#22c55e' : '#333'}, ${isActive ? '#16a34a' : '#222'})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: '800', color: isActive ? '#fff' : '#555', flexShrink: 0, position: 'relative' } as React.CSSProperties}>
+                              {(emp.users?.full_name || emp.users?.email || 'U')[0].toUpperCase()}
+                              <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', borderRadius: '50%', background: isActive ? '#22c55e' : '#555', border: '2px solid #1a1a1a' } as React.CSSProperties} />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{emp.users?.full_name || '—'}</div>
+                              <div style={{ fontSize: '0.78rem', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{emp.users?.email || '—'}</div>
+                            </div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#00d9ff', flexShrink: 0 }}>${emp.hourly_rate?.toFixed(0)}/hr</div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            {statusBadge(emp.employee_type || 'w2')}
+                            <span style={{ fontSize: '0.72rem', color: '#444' }}>Joined {formatDate(emp.created_at)}</span>
+                            {isActive && <span style={{ fontSize: '0.72rem', color: '#22c55e', fontWeight: '700' }}>● Working now</span>}
+                          </div>
+                        </div>
+                      ) : (
+                        /* Desktop: table row */
                         <div
                           key={emp.id}
                           style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr', padding: '1rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: i < employees.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', transition: 'background 0.15s' }}
@@ -670,45 +693,61 @@ export default function OwnerDashboard() {
                   <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>No time entries yet</div>
                 ) : (
                   <>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                      {['Employee', 'Date', 'In', 'Out', 'Hours', 'Location', 'Status'].map(h => (
-                        <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
-                      ))}
-                    </div>
+                    {!isMobile && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        {['Employee', 'Date', 'In', 'Out', 'Hours', 'Location', 'Status'].map(h => (
+                          <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
+                        ))}
+                      </div>
+                    )}
                     {timeEntries.map((entry: any, i: number) => (
-                      <div key={entry.id}>
-                        <div
-                          style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: (!entry.notes && i < timeEntries.length - 1) ? '1px solid rgba(255,255,255,0.03)' : 'none', transition: 'background 0.15s' }}
-                          onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
-                          onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
-                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: '800', flexShrink: 0, border: '1px solid rgba(255,255,255,0.06)' }}>
-                              {empInitial(entry)}
+                      <div key={entry.id} style={isMobile ? { padding: '0.875rem 1rem', borderBottom: i < timeEntries.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' } : {}}>
+                        {isMobile ? (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: '800', border: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>{empInitial(entry)}</div>
+                                <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>{empName(entry)}</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ fontSize: '0.9rem', fontWeight: '800' }}>{entry.hours_worked?.toFixed(2) ?? '—'}h</span>
+                                {statusBadge(entry.approval_status)}
+                              </div>
                             </div>
-                            <span style={{ fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{empName(entry)}</span>
-                          </div>
-                          <div style={{ fontSize: '0.8rem', color: '#666' }}>{formatDate(entry.clock_in)}</div>
-                          <div style={{ fontSize: '0.8rem', color: '#aaa' }}>{formatTime(entry.clock_in)}</div>
-                          <div style={{ fontSize: '0.8rem', color: entry.clock_out ? '#aaa' : '#22c55e', fontWeight: entry.clock_out ? 'normal' : '600' }}>
-                            {entry.clock_out ? formatTime(entry.clock_out) : '● Live'}
-                          </div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: '700' }}>{entry.hours_worked?.toFixed(2) ?? '—'}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#555' }}>
-                            {entry.latitude && entry.longitude
-                              ? `📍 ${Number(entry.latitude).toFixed(3)}, ${Number(entry.longitude).toFixed(3)}`
-                              : '—'}
-                          </div>
-                          <div>{statusBadge(entry.approval_status)}</div>
-                        </div>
-                        {/* Feature 2: Show notes in owner view */}
-                        {entry.notes && (
-                          <div style={{ padding: '0 1.5rem 0.875rem 1.5rem', borderBottom: i < timeEntries.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
-                            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '7px', padding: '0.5rem 0.875rem', fontSize: '0.78rem', color: '#666', borderLeft: '2px solid rgba(255,255,255,0.1)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <span style={{ fontSize: '0.7rem', color: '#555', fontStyle: 'normal', fontWeight: '700' }}>NOTE:</span>
-                              "{entry.notes}"
+                            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.78rem', color: '#555' }}>
+                              <span>{formatDate(entry.clock_in)}</span>
+                              <span>{formatTime(entry.clock_in)} → {entry.clock_out ? formatTime(entry.clock_out) : <span style={{ color: '#22c55e', fontWeight: '700' }}>Live</span>}</span>
                             </div>
-                          </div>
+                            {entry.notes && (
+                              <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#555', fontStyle: 'italic', borderLeft: '2px solid rgba(255,255,255,0.08)', paddingLeft: '0.5rem' }}>"{entry.notes}"</div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <div
+                              style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: (!entry.notes && i < timeEntries.length - 1) ? '1px solid rgba(255,255,255,0.03)' : 'none', transition: 'background 0.15s' }}
+                              onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
+                              onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: '800', flexShrink: 0, border: '1px solid rgba(255,255,255,0.06)' }}>{empInitial(entry)}</div>
+                                <span style={{ fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{empName(entry)}</span>
+                              </div>
+                              <div style={{ fontSize: '0.8rem', color: '#666' }}>{formatDate(entry.clock_in)}</div>
+                              <div style={{ fontSize: '0.8rem', color: '#aaa' }}>{formatTime(entry.clock_in)}</div>
+                              <div style={{ fontSize: '0.8rem', color: entry.clock_out ? '#aaa' : '#22c55e', fontWeight: entry.clock_out ? 'normal' : '600' }}>{entry.clock_out ? formatTime(entry.clock_out) : '● Live'}</div>
+                              <div style={{ fontSize: '0.85rem', fontWeight: '700' }}>{entry.hours_worked?.toFixed(2) ?? '—'}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#555' }}>{entry.latitude ? `📍 ${Number(entry.latitude).toFixed(3)}, ${Number(entry.longitude).toFixed(3)}` : '—'}</div>
+                              <div>{statusBadge(entry.approval_status)}</div>
+                            </div>
+                            {entry.notes && (
+                              <div style={{ padding: '0 1.5rem 0.875rem 1.5rem', borderBottom: i < timeEntries.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
+                                <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '7px', padding: '0.5rem 0.875rem', fontSize: '0.78rem', color: '#666', borderLeft: '2px solid rgba(255,255,255,0.1)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <span style={{ fontSize: '0.7rem', color: '#555', fontStyle: 'normal', fontWeight: '700' }}>NOTE:</span>"{entry.notes}"
+                                </div>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     ))}
@@ -775,58 +814,65 @@ export default function OwnerDashboard() {
                   <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>No payroll records yet</div>
                 ) : (
                   <>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr 1.5fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                      {['Employee', 'Week', 'Hours', 'Gross', 'Tax 🐷', 'Net Pay', 'Status', 'Action'].map(h => (
-                        <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
-                      ))}
-                    </div>
+                    {!isMobile && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr 1.5fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        {['Employee', 'Week', 'Hours', 'Gross', 'Tax 🐷', 'Net Pay', 'Status', 'Action'].map(h => (
+                          <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
+                        ))}
+                      </div>
+                    )}
                     {payroll.map((pr: any, i: number) => {
                       const gross = pr.total_amount || 0
                       const taxWithheld = pr.tax_withheld || 0
                       const net = pr.net_amount ?? gross
-                      return (
-                        <div
-                          key={pr.id}
+                      const empLabel = pr.employees?.users?.full_name || pr.employees?.users?.email?.split('@')[0] || '—'
+                      const actionBtn = pr.status === 'pending' ? (
+                        <button onClick={() => handlePayrollAction(pr.id, 'approved')} disabled={payrollUpdating === pr.id}
+                          style={{ padding: '0.375rem 0.875rem', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', borderRadius: '7px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', opacity: payrollUpdating === pr.id ? 0.5 : 1 }}>
+                          ✓ Approve
+                        </button>
+                      ) : pr.status === 'approved' ? (
+                        <button onClick={() => handlePayrollAction(pr.id, 'paid')} disabled={payrollUpdating === pr.id}
+                          style={{ padding: '0.375rem 0.875rem', background: 'rgba(0,217,255,0.12)', border: '1px solid rgba(0,217,255,0.3)', color: '#00d9ff', borderRadius: '7px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', opacity: payrollUpdating === pr.id ? 0.5 : 1 }}>
+                          💸 Mark Paid
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '0.78rem', color: '#22c55e' }}>✓ Paid</span>
+                      )
+                      return isMobile ? (
+                        /* Mobile: card */
+                        <div key={pr.id} style={{ padding: '1rem', borderBottom: i < payroll.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
+                            <div>
+                              <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{empLabel}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>Week of {pr.week_ending} · {pr.total_hours}h</div>
+                            </div>
+                            {statusBadge(pr.status)}
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                              <span style={{ fontSize: '1.1rem', fontWeight: '900', color: '#22c55e' }}>${net.toFixed(2)}</span>
+                              <span style={{ fontSize: '0.75rem', color: '#444', marginLeft: '0.5rem' }}>net · ${gross.toFixed(2)} gross</span>
+                              {taxWithheld > 0 && <div style={{ fontSize: '0.72rem', color: '#f59e0b', marginTop: '0.15rem' }}>🐷 ${taxWithheld.toFixed(2)} reserved</div>}
+                            </div>
+                            {actionBtn}
+                          </div>
+                        </div>
+                      ) : (
+                        /* Desktop: table row */
+                        <div key={pr.id}
                           style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr 1.5fr', padding: '0.875rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: i < payroll.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none', transition: 'background 0.15s' }}
                           onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
                           onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
                         >
-                          <div style={{ fontSize: '0.875rem', fontWeight: '600' }}>{pr.employees?.users?.full_name || pr.employees?.users?.email?.split('@')[0] || '—'}</div>
+                          <div style={{ fontSize: '0.875rem', fontWeight: '600' }}>{empLabel}</div>
                           <div style={{ fontSize: '0.8rem', color: '#666' }}>{pr.week_ending}</div>
                           <div style={{ fontSize: '0.8rem', color: '#aaa' }}>{pr.total_hours}h</div>
                           <div style={{ fontSize: '0.85rem', color: '#aaa' }}>${gross.toFixed(2)}</div>
-                          <div style={{ fontSize: '0.85rem', color: taxWithheld > 0 ? '#f59e0b' : '#444' }}>
-                            {taxWithheld > 0 ? `$${taxWithheld.toFixed(2)}` : '—'}
-                          </div>
+                          <div style={{ fontSize: '0.85rem', color: taxWithheld > 0 ? '#f59e0b' : '#444' }}>{taxWithheld > 0 ? `$${taxWithheld.toFixed(2)}` : '—'}</div>
                           <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#22c55e' }}>${net.toFixed(2)}</div>
                           <div>{statusBadge(pr.status)}</div>
-                          <div style={{ display: 'flex', gap: '0.4rem' }}>
-                            {pr.status === 'pending' && (
-                              <button
-                                onClick={() => handlePayrollAction(pr.id, 'approved')}
-                                disabled={payrollUpdating === pr.id}
-                                style={{ padding: '0.375rem 0.75rem', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', borderRadius: '7px', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer', transition: 'all 0.15s', opacity: payrollUpdating === pr.id ? 0.5 : 1 }}
-                                onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(34,197,94,0.25)' }}
-                                onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(34,197,94,0.15)' }}
-                              >
-                                ✓ Approve
-                              </button>
-                            )}
-                            {pr.status === 'approved' && (
-                              <button
-                                onClick={() => handlePayrollAction(pr.id, 'paid')}
-                                disabled={payrollUpdating === pr.id}
-                                style={{ padding: '0.375rem 0.75rem', background: 'rgba(0,217,255,0.12)', border: '1px solid rgba(0,217,255,0.3)', color: '#00d9ff', borderRadius: '7px', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer', transition: 'all 0.15s', opacity: payrollUpdating === pr.id ? 0.5 : 1 }}
-                                onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.22)' }}
-                                onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.12)' }}
-                              >
-                                💸 Mark Paid
-                              </button>
-                            )}
-                            {pr.status === 'paid' && (
-                              <span style={{ fontSize: '0.78rem', color: '#22c55e' }}>✓ Paid</span>
-                            )}
-                          </div>
+                          <div>{actionBtn}</div>
                         </div>
                       )
                     })}
