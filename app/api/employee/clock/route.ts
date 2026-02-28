@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Invalid token' }, { status: 401 })
     }
 
-    const { action, lat, lng, entryId, notes } = await request.json()
+    const { action, lat, lng, entryId, notes, breakMinutes } = await request.json()
     const supabase = createServiceClient()
 
     // Get employee record
@@ -115,7 +115,10 @@ export async function POST(request: Request) {
 
       const clockOutTime = new Date()
       const clockInTime = new Date(existingEntry.clock_in)
-      const hoursWorked = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60)
+      const wallClockHours = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60)
+      // Deduct lunch/break time passed from frontend
+      const breakMins = typeof breakMinutes === 'number' && breakMinutes > 0 ? breakMinutes : 0
+      const hoursWorked = Math.max(0, wallClockHours - breakMins / 60)
 
       const baseUpdate: Record<string, any> = {
         clock_out: clockOutTime.toISOString(),

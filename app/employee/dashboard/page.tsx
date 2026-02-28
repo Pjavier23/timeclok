@@ -42,6 +42,12 @@ export default function EmployeeDashboard() {
   const [clockOutNote, setClockOutNote] = useState('')
   const [shiftSummary, setShiftSummary] = useState<ShiftSummary | null>(null)
 
+  // Lunch break tracking (localStorage-persisted, no DB migration needed)
+  const [isOnBreak, setIsOnBreak] = useState(false)
+  const [breakStartedAt, setBreakStartedAt] = useState<number | null>(null)
+  const [breakAccumulated, setBreakAccumulated] = useState(0) // total break seconds so far
+  const [breakTick, setBreakTick] = useState(0) // triggers re-render during break
+
   const getSession = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     return session
@@ -75,6 +81,38 @@ export default function EmployeeDashboard() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Restore break state from localStorage when active entry loads
+  useEffect(() => {
+    if (!data?.activeEntry) {
+      // Clocked out — clear break state
+      setIsOnBreak(false)
+      setBreakStartedAt(null)
+      setBreakAccumulated(0)
+      localStorage.removeItem('tc_break')
+      return
+    }
+    const saved = localStorage.getItem('tc_break')
+    if (saved) {
+      try {
+        const { entryId, startedAt, accumulated } = JSON.parse(saved)
+        if (entryId === data.activeEntry.id) {
+          setBreakStartedAt(startedAt)
+          setBreakAccumulated(accumulated)
+          setIsOnBreak(!!startedAt)
+        } else {
+          localStorage.removeItem('tc_break')
+        }
+      } catch { localStorage.removeItem('tc_break') }
+    }
+  }, [data?.activeEntry?.id])
+
+  // Tick every second while on break (to update break timer display)
+  useEffect(() => {
+    if (!isOnBreak) return
+    const t = setInterval(() => setBreakTick(n => n + 1), 1000)
+    return () => clearInterval(t)
+  }, [isOnBreak])
 
   // Live timer
   useEffect(() => {
@@ -173,10 +211,20 @@ export default function EmployeeDashboard() {
     const session = await getSession()
     if (!session) return
 
+    // Auto-end break if still on break when clocking out
+    let finalBreakSecs = breakAccumulated
+    if (isOnBreak && breakStartedAt) {
+      finalBreakSecs += Math.floor((Date.now() - breakStartedAt) / 1000)
+      setIsOnBreak(false)
+      setBreakStartedAt(null)
+    }
+    const breakMinutes = Math.round(finalBreakSecs / 60)
+    localStorage.removeItem('tc_break')
+
     const res = await fetch('/api/employee/clock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ action: 'clock_out', entryId: data?.activeEntry?.id, notes: clockOutNote }),
+      body: JSON.stringify({ action: 'clock_out', entryId: data?.activeEntry?.id, notes: clockOutNote, breakMinutes }),
     })
 
     const json = await res.json()
@@ -198,6 +246,24 @@ export default function EmployeeDashboard() {
       await fetchData()
     }
     setClockLoading(false)
+  }
+
+  const handleStartBreak = () => {
+    const now = Date.now()
+    setIsOnBreak(true)
+    setBreakStartedAt(now)
+    const saved = { entryId: data?.activeEntry?.id, startedAt: now, accumulated: breakAccumulated }
+    localStorage.setItem('tc_break', JSON.stringify(saved))
+  }
+
+  const handleEndBreak = () => {
+    const breakSecs = breakStartedAt ? Math.floor((Date.now() - breakStartedAt) / 1000) : 0
+    const newAccumulated = breakAccumulated + breakSecs
+    setIsOnBreak(false)
+    setBreakStartedAt(null)
+    setBreakAccumulated(newAccumulated)
+    const saved = { entryId: data?.activeEntry?.id, startedAt: null, accumulated: newAccumulated }
+    localStorage.setItem('tc_break', JSON.stringify(saved))
   }
 
   const handleSaveTaxSettings = async () => {
@@ -244,9 +310,15 @@ export default function EmployeeDashboard() {
 
   // Feature 1: Live earnings ticker calculations
   const hourlyRate = stats?.hourlyRate ?? 0
-  const todayEarningsLive = ((todayCompletedSeconds + elapsed) / 3600 * hourlyRate).toFixed(2)
+
+  // Break-aware elapsed: deduct accumulated break time from worked seconds
+  const currentBreakSecs = isOnBreak && breakStartedAt ? Math.floor((Date.now() - breakStartedAt) / 1000) : 0
+  const totalBreakSecs = breakAccumulated + currentBreakSecs
+  const workedElapsed = Math.max(0, elapsed - totalBreakSecs)
+
+  const todayEarningsLive = ((todayCompletedSeconds + workedElapsed) / 3600 * hourlyRate).toFixed(2)
   const weeklyHoursCompleted = stats?.weeklyHours ?? 0
-  const weeklyEarningsLive = ((weeklyHoursCompleted + elapsed / 3600) * hourlyRate).toFixed(2)
+  const weeklyEarningsLive = ((weeklyHoursCompleted + workedElapsed / 3600) * hourlyRate).toFixed(2)
 
   // Feature 5: Weekly chart with live session injected into today's bar
   const todayDayIdx = (new Date().getDay() + 6) % 7
@@ -429,24 +501,29 @@ export default function EmployeeDashboard() {
                     gap: '0.5rem',
                     padding: '0.4rem 1rem',
                     borderRadius: '100px',
-                    background: isClockedIn ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.05)',
-                    border: `1px solid ${isClockedIn ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                    background: isOnBreak ? 'rgba(251,191,36,0.12)' : isClockedIn ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${isOnBreak ? 'rgba(251,191,36,0.3)' : isClockedIn ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.08)'}`,
                   }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isClockedIn ? '#22c55e' : '#555', display: 'block' }} />
-                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: isClockedIn ? '#22c55e' : '#666', letterSpacing: '0.04em' }}>
-                      {isClockedIn ? 'CLOCKED IN' : 'CLOCKED OUT'}
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOnBreak ? '#fbbf24' : isClockedIn ? '#22c55e' : '#555', display: 'block', animation: isOnBreak ? 'pulse 1.5s infinite' : 'none' }} />
+                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: isOnBreak ? '#fbbf24' : isClockedIn ? '#22c55e' : '#666', letterSpacing: '0.04em' }}>
+                      {isOnBreak ? '☕ ON BREAK' : isClockedIn ? 'CLOCKED IN' : 'CLOCKED OUT'}
                     </span>
                   </div>
                 </div>
 
                 {isClockedIn ? (
                   <div>
-                    {/* Live timer */}
-                    <div style={{ fontFamily: '"SF Mono", "Fira Code", monospace', fontSize: 'clamp(2.75rem, 10vw, 4.5rem)', fontWeight: '900', color: '#22c55e', letterSpacing: '0.02em', lineHeight: 1, marginBottom: '0.4rem' }}>
-                      {formatElapsed(elapsed)}
+                    {/* Live timer — shows worked time only (break time excluded) */}
+                    <div style={{ fontFamily: '"SF Mono", "Fira Code", monospace', fontSize: 'clamp(2.75rem, 10vw, 4.5rem)', fontWeight: '900', color: isOnBreak ? '#fbbf24' : '#22c55e', letterSpacing: '0.02em', lineHeight: 1, marginBottom: '0.25rem', transition: 'color 0.3s' }}>
+                      {formatElapsed(workedElapsed)}
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: '#555', marginBottom: '1.25rem' }}>
-                      Clocked in at {formatTime(activeEntry.clock_in)}
+                    {isOnBreak && (
+                      <div style={{ fontSize: '0.78rem', color: '#fbbf24', fontWeight: '700', marginBottom: '0.25rem', letterSpacing: '0.04em' }}>
+                        Break: {formatElapsed(currentBreakSecs)}
+                      </div>
+                    )}
+                    <div style={{ fontSize: '0.78rem', color: '#555', marginBottom: '1.25rem' }}>
+                      Clocked in at {formatTime(activeEntry.clock_in)}{totalBreakSecs > 60 ? ` · ${Math.round(totalBreakSecs / 60)}m break` : ''}
                     </div>
 
                     {/* Feature 1: Live Earnings Ticker */}
@@ -576,6 +653,34 @@ export default function EmployeeDashboard() {
                   <span style={{ fontSize: '1.75rem' }}>{clockLoading ? '⏳' : isClockedIn ? '⏹' : '▶'}</span>
                   <span>{clockLoading ? '...' : isClockedIn ? 'CLOCK OUT' : 'CLOCK IN'}</span>
                 </button>
+
+                {/* Break button — only shows when clocked in */}
+                {isClockedIn && (
+                  <div style={{ marginTop: '1.25rem' }}>
+                    <button
+                      onClick={isOnBreak ? handleEndBreak : handleStartBreak}
+                      disabled={clockLoading}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.65rem 1.5rem',
+                        borderRadius: '100px',
+                        border: `1.5px solid ${isOnBreak ? 'rgba(34,197,94,0.5)' : 'rgba(251,191,36,0.4)'}`,
+                        background: isOnBreak ? 'rgba(34,197,94,0.08)' : 'rgba(251,191,36,0.08)',
+                        color: isOnBreak ? '#22c55e' : '#fbbf24',
+                        fontSize: '0.875rem',
+                        fontWeight: '700',
+                        cursor: clockLoading ? 'not-allowed' : 'pointer',
+                        letterSpacing: '0.03em',
+                        transition: 'all 0.2s',
+                      } as React.CSSProperties}
+                    >
+                      <span>{isOnBreak ? '▶' : '☕'}</span>
+                      <span>{isOnBreak ? 'END BREAK' : 'START BREAK'}</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -599,11 +704,11 @@ export default function EmployeeDashboard() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <div>
                   <div style={{ fontSize: '0.875rem', fontWeight: '800' }}>This Week's Hours</div>
-                  <div style={{ fontSize: '0.72rem', color: '#555', marginTop: '0.2rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#777', marginTop: '0.2rem' }}>
                     Mon – Sun · {weeklyDayHours.reduce((a, b) => a + b, 0).toFixed(1)}h total
                   </div>
                 </div>
-                <div style={{ fontSize: '0.72rem', color: '#444', textAlign: 'right' }}>
+                <div style={{ fontSize: '0.72rem', color: '#888', textAlign: 'right' }}>
                   <span style={{ color: '#00d9ff', fontWeight: '700' }}>■</span> today
                 </div>
               </div>
@@ -614,7 +719,7 @@ export default function EmployeeDashboard() {
                   const barH = Math.max(pct * 64, h > 0 ? 4 : 0)
                   return (
                     <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
-                      <div style={{ fontSize: '0.65rem', color: isToday ? '#00d9ff' : '#555', fontWeight: '700', minHeight: '16px', textAlign: 'center', lineHeight: 1 }}>
+                      <div style={{ fontSize: '0.65rem', color: isToday ? '#00d9ff' : '#999', fontWeight: '700', minHeight: '16px', textAlign: 'center', lineHeight: 1 }}>
                         {h > 0 ? `${h.toFixed(1)}` : ''}
                       </div>
                       <div style={{ width: '100%', height: '64px', display: 'flex', alignItems: 'flex-end' }}>
@@ -629,7 +734,7 @@ export default function EmployeeDashboard() {
                           boxShadow: isToday && h > 0 ? '0 0 12px rgba(0,217,255,0.3)' : 'none',
                         } as React.CSSProperties} />
                       </div>
-                      <div style={{ fontSize: '0.68rem', fontWeight: isToday ? '800' : '500', color: isToday ? '#00d9ff' : '#444' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: isToday ? '800' : '500', color: isToday ? '#00d9ff' : '#888' }}>
                         {dayLabels[i]}
                       </div>
                     </div>
