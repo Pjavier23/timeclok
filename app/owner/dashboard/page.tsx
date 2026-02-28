@@ -16,7 +16,10 @@ export default function OwnerDashboard() {
   const [data, setData] = useState<any>(null)
   const [copiedLink, setCopiedLink] = useState(false)
   const [payrollUpdating, setPayrollUpdating] = useState<string | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Feature 3: Bulk approve state
+  const [bulkApproving, setBulkApproving] = useState(false)
+  const [bulkApproveMsg, setBulkApproveMsg] = useState<string | null>(null)
 
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false)
@@ -97,6 +100,87 @@ export default function OwnerDashboard() {
     setPayrollUpdating(null)
   }
 
+  // Feature 3: Bulk Approve
+  const handleBulkApprove = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    setBulkApproving(true)
+    setBulkApproveMsg(null)
+
+    const res = await fetch('/api/payroll/bulk-approve', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+
+    const json = await res.json()
+    setBulkApproving(false)
+
+    if (json.success) {
+      setBulkApproveMsg(`✓ ${json.message}`)
+      setTimeout(() => setBulkApproveMsg(null), 5000)
+      await fetchData()
+    } else {
+      setBulkApproveMsg(`⚠ ${json.error}`)
+    }
+  }
+
+  // Feature 4: CSV Export helpers
+  const exportCSV = (rows: string[][], filename: string) => {
+    const csvContent = rows.map(row =>
+      row.map(cell => {
+        const str = String(cell ?? '')
+        return str.includes(',') || str.includes('"') || str.includes('\n')
+          ? `"${str.replace(/"/g, '""')}"`
+          : str
+      }).join(',')
+    ).join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportTimeEntriesCSV = () => {
+    if (!data?.timeEntries?.length) return
+    const headers = ['Employee', 'Date', 'Clock In', 'Clock Out', 'Hours', 'Location', 'Status', 'Notes']
+    const rows = data.timeEntries.map((e: any) => [
+      empName(e),
+      new Date(e.clock_in).toLocaleDateString(),
+      new Date(e.clock_in).toLocaleTimeString(),
+      e.clock_out ? new Date(e.clock_out).toLocaleTimeString() : '',
+      e.hours_worked?.toFixed(2) ?? '',
+      e.latitude && e.longitude ? `${Number(e.latitude).toFixed(4)},${Number(e.longitude).toFixed(4)}` : '',
+      e.approval_status ?? '',
+      e.notes ?? '',
+    ])
+    exportCSV([headers, ...rows], `time-entries-${new Date().toISOString().slice(0, 10)}.csv`)
+  }
+
+  const exportPayrollCSV = () => {
+    if (!data?.payroll?.length) return
+    const headers = ['Employee', 'Week Ending', 'Hours', 'Gross', 'Tax Withheld', 'Net Pay', 'Status']
+    const rows = data.payroll.map((pr: any) => {
+      const gross = pr.total_amount || 0
+      const tax = pr.tax_withheld || 0
+      const net = pr.net_amount ?? gross
+      return [
+        pr.employees?.users?.full_name || pr.employees?.users?.email?.split('@')[0] || '',
+        pr.week_ending ?? '',
+        pr.total_hours ?? '',
+        gross.toFixed(2),
+        tax.toFixed(2),
+        net.toFixed(2),
+        pr.status ?? '',
+      ]
+    })
+    exportCSV([headers, ...rows], `payroll-${new Date().toISOString().slice(0, 10)}.csv`)
+  }
+
   const handleSendInvite = async () => {
     if (!inviteEmail) return
     setInviteSending(true)
@@ -141,7 +225,7 @@ export default function OwnerDashboard() {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f0f0f', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '1rem', animation: 'pulse 1.5s infinite' }}>⏱</div>
+          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⏱</div>
           <div style={{ color: '#555', fontSize: '0.9rem', letterSpacing: '0.05em' }}>LOADING DASHBOARD</div>
         </div>
       </div>
@@ -150,7 +234,6 @@ export default function OwnerDashboard() {
 
   const { company, employees, timeEntries, payroll, stats } = data || {}
 
-  // Derive who's clocked in
   const activeSessions = (timeEntries || []).filter((e: any) => !e.clock_out)
 
   const statusBadge = (status: string) => {
@@ -164,7 +247,7 @@ export default function OwnerDashboard() {
     }
     const [color, bg] = map[status] || ['#888', 'rgba(255,255,255,0.08)']
     return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.65rem', borderRadius: '100px', fontSize: '0.75rem', fontWeight: '700', color, background: bg, letterSpacing: '0.02em' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.65rem', borderRadius: '100px', fontSize: '0.75rem', fontWeight: '700', color, background: bg }}>
         {status}
       </span>
     )
@@ -174,6 +257,70 @@ export default function OwnerDashboard() {
   const formatTime = (ts: string) => new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
   const empName = (entry: any) => entry?.employees?.users?.full_name || entry?.employees?.users?.email?.split('@')[0] || 'Unknown'
   const empInitial = (entry: any) => (entry?.employees?.users?.full_name || entry?.employees?.users?.email || 'U')[0].toUpperCase()
+
+  // Feature 6: Relative time helper
+  const relativeTime = (ts: string) => {
+    const diff = Date.now() - new Date(ts).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'just now'
+    if (mins < 60) return `${mins}m ago`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h ago`
+    const days = Math.floor(hrs / 24)
+    if (days === 1) return 'yesterday'
+    return `${days}d ago`
+  }
+
+  // Feature 6: Build activity feed from time entries + payroll
+  const buildActivityFeed = () => {
+    const items: { type: 'clock_in' | 'clock_out' | 'payroll'; name: string; detail: string; time: string; ts: number }[] = []
+
+    // Recent clock events (last 20 entries)
+    const recentEntries = [...(timeEntries || [])].sort((a: any, b: any) =>
+      new Date(b.clock_in).getTime() - new Date(a.clock_in).getTime()
+    ).slice(0, 20)
+
+    recentEntries.forEach((e: any) => {
+      const name = empName(e)
+      items.push({
+        type: 'clock_in',
+        name,
+        detail: `clocked in`,
+        time: relativeTime(e.clock_in),
+        ts: new Date(e.clock_in).getTime(),
+      })
+      if (e.clock_out) {
+        const hours = e.hours_worked?.toFixed(1) ?? '?'
+        items.push({
+          type: 'clock_out',
+          name,
+          detail: `clocked out · ${hours}h worked`,
+          time: relativeTime(e.clock_out),
+          ts: new Date(e.clock_out).getTime(),
+        })
+      }
+    })
+
+    // Recent payroll approvals
+    const approvedPayroll = (payroll || []).filter((p: any) => p.status === 'approved' || p.status === 'paid')
+    approvedPayroll.forEach((p: any) => {
+      const name = p.employees?.users?.full_name || p.employees?.users?.email?.split('@')[0] || 'Employee'
+      const net = (p.net_amount ?? p.total_amount ?? 0).toFixed(2)
+      items.push({
+        type: 'payroll',
+        name,
+        detail: `payroll approved · $${net}`,
+        time: p.week_ending ? `week of ${p.week_ending}` : 'recent',
+        ts: 0, // payroll items don't have a timestamp easily, put at end
+      })
+    })
+
+    // Sort by time desc, payroll items go after live events
+    items.sort((a, b) => b.ts - a.ts)
+    return items.slice(0, 12)
+  }
+
+  const activityFeed = buildActivityFeed()
 
   const navItems: { id: Tab; icon: string; label: string }[] = [
     { id: 'overview', icon: '▦', label: 'Overview' },
@@ -188,7 +335,7 @@ export default function OwnerDashboard() {
     <div style={{ minHeight: '100vh', background: '#0f0f0f', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', display: 'flex', flexDirection: 'column' } as React.CSSProperties}>
 
       {/* ── TOP NAV ── */}
-      <header style={{ background: '#0f0f0f', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0 1.5rem', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, backdropFilter: 'blur(10px)' } as React.CSSProperties}>
+      <header style={{ background: '#0f0f0f', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0 1.5rem', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 } as React.CSSProperties}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '1.2rem' }}>⏱</span>
@@ -211,12 +358,12 @@ export default function OwnerDashboard() {
           )}
           {pendingPayrollCount > 0 && (
             <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', padding: '0.3rem 0.75rem', borderRadius: '100px', fontSize: '0.75rem', color: '#f59e0b', fontWeight: '700', cursor: 'pointer' }} onClick={() => setActiveTab('payroll')}>
-              ⚠ {pendingPayrollCount} pending payroll
+              ⚠ {pendingPayrollCount} pending
             </div>
           )}
           <button
             onClick={handleLogout}
-            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#666', padding: '0.4rem 0.875rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.8rem', transition: 'all 0.2s' }}
+            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#666', padding: '0.4rem 0.875rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.8rem' }}
             onMouseEnter={e => { (e.currentTarget).style.borderColor = 'rgba(239,68,68,0.4)'; (e.currentTarget).style.color = '#ef4444' }}
             onMouseLeave={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget).style.color = '#666' }}
           >
@@ -226,7 +373,7 @@ export default function OwnerDashboard() {
       </header>
 
       <div style={{ display: 'flex', flex: 1 } as React.CSSProperties}>
-        {/* ── SIDEBAR NAV ── */}
+        {/* ── SIDEBAR ── */}
         <nav style={{ width: '220px', borderRight: '1px solid rgba(255,255,255,0.06)', padding: '1.25rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', flexShrink: 0, background: '#0c0c0c' } as React.CSSProperties}>
           {navItems.map(item => (
             <button
@@ -264,7 +411,6 @@ export default function OwnerDashboard() {
 
           <div style={{ flex: 1 }} />
 
-          {/* Quick invite at bottom */}
           <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(0,217,255,0.05)', border: '1px solid rgba(0,217,255,0.12)', borderRadius: '10px' }}>
             <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '700', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Grow your team</div>
             <button
@@ -304,7 +450,7 @@ export default function OwnerDashboard() {
                 ].map(s => (
                   <div
                     key={s.label}
-                    style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.5rem', transition: 'border-color 0.2s, transform 0.2s', cursor: 'default' }}
+                    style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.5rem', cursor: 'default', transition: 'border-color 0.2s, transform 0.2s' }}
                     onMouseEnter={e => { (e.currentTarget).style.borderColor = `${s.color}33`; (e.currentTarget).style.transform = 'translateY(-1px)' }}
                     onMouseLeave={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.06)'; (e.currentTarget).style.transform = 'none' }}
                   >
@@ -323,8 +469,8 @@ export default function OwnerDashboard() {
                 <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', marginBottom: '2rem', overflow: 'hidden' }}>
                   <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontWeight: '800', fontSize: '1rem' }}>Who's Working Now</div>
-                      <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>Live employee status</div>
+                      <div style={{ fontWeight: '800', fontSize: '1rem' }}>Live Attendance</div>
+                      <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>{activeSessions.length} of {employees.length} clocked in right now</div>
                     </div>
                     <button
                       onClick={() => { setShowInviteModal(true); setInviteResult(null) }}
@@ -338,8 +484,7 @@ export default function OwnerDashboard() {
                       const active = activeSessions.find((e: any) => e.employee_id === emp.id || e.employees?.id === emp.id)
                       const isClockedIn = !!active
                       return (
-                        <div key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', padding: '0.875rem', background: isClockedIn ? 'rgba(34,197,94,0.05)' : 'rgba(255,255,255,0.02)', borderRadius: '10px', border: `1px solid ${isClockedIn ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.04)'}`, transition: 'all 0.2s' }}>
-                          {/* Avatar */}
+                        <div key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', padding: '0.875rem', background: isClockedIn ? 'rgba(34,197,94,0.05)' : 'rgba(255,255,255,0.02)', borderRadius: '10px', border: `1px solid ${isClockedIn ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.04)'}` }}>
                           <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: `linear-gradient(135deg, ${isClockedIn ? '#22c55e' : '#333'}, ${isClockedIn ? '#16a34a' : '#222'})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: '800', color: isClockedIn ? '#fff' : '#555', flexShrink: 0, position: 'relative' } as React.CSSProperties}>
                             {(emp.users?.full_name || emp.users?.email || 'U')[0].toUpperCase()}
                             <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '12px', height: '12px', borderRadius: '50%', background: isClockedIn ? '#22c55e' : '#444', border: '2px solid #1a1a1a' } as React.CSSProperties} />
@@ -349,7 +494,7 @@ export default function OwnerDashboard() {
                               {emp.users?.full_name || emp.users?.email?.split('@')[0] || 'Employee'}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: isClockedIn ? '#22c55e' : '#555', fontWeight: '600' }}>
-                              {isClockedIn ? `⏱ ${formatTime(active.clock_in)}` : 'Off'}
+                              {isClockedIn ? `⏱ Since ${formatTime(active.clock_in)}` : 'Off clock'}
                             </div>
                           </div>
                           <div style={{ fontSize: '0.75rem', color: '#555', flexShrink: 0 }}>
@@ -362,51 +507,56 @@ export default function OwnerDashboard() {
                 </div>
               )}
 
-              {/* Recent activity */}
+              {/* Feature 6: Rich Activity Feed */}
               <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', overflow: 'hidden' }}>
                 <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <div style={{ fontWeight: '800', fontSize: '1rem' }}>Recent Activity</div>
-                    <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>Latest time entries</div>
+                    <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>Live stream of clock-ins, clock-outs & payroll</div>
                   </div>
                   <button onClick={() => setActiveTab('timeentries')} style={{ background: 'transparent', border: 'none', color: '#00d9ff', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '600', padding: '0.3rem 0.5rem' }}>View all →</button>
                 </div>
-                {!timeEntries?.length ? (
+
+                {activityFeed.length === 0 ? (
                   <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>
                     <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>⏰</div>
-                    <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>No time entries yet</div>
+                    <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>No activity yet</div>
                     <div style={{ fontSize: '0.8rem' }}>Invite employees to get started</div>
                   </div>
                 ) : (
-                  <div>
-                    {/* Header row */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr', padding: '0.75rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      {['Employee', 'Date', 'Clock In', 'Clock Out', 'Hours', 'Status'].map(h => (
-                        <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
-                      ))}
-                    </div>
-                    {(timeEntries || []).slice(0, 8).map((entry: any, i: number) => (
-                      <div
-                        key={entry.id}
-                        style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: i < 7 ? '1px solid rgba(255,255,255,0.03)' : 'none', transition: 'background 0.15s' }}
-                        onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
-                        onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
-                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: '800', flexShrink: 0, border: '1px solid rgba(255,255,255,0.06)' }}>
-                            {empInitial(entry)}
+                  <div style={{ padding: '0.5rem 0' }}>
+                    {activityFeed.map((item, i) => {
+                      const config = {
+                        clock_in: { dot: '#22c55e', icon: '🟢', label: 'clocked in', dotColor: 'rgba(34,197,94,0.15)' },
+                        clock_out: { dot: '#ef4444', icon: '🔴', label: 'clocked out', dotColor: 'rgba(239,68,68,0.15)' },
+                        payroll: { dot: '#f59e0b', icon: '💰', label: 'payroll', dotColor: 'rgba(245,158,11,0.15)' },
+                      }[item.type]
+
+                      return (
+                        <div
+                          key={i}
+                          style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1.5rem', borderBottom: i < activityFeed.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none', transition: 'background 0.15s' }}
+                          onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
+                          onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
+                        >
+                          {/* Dot indicator */}
+                          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: config.dotColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', flexShrink: 0 }}>
+                            {config.icon}
                           </div>
-                          <span style={{ fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{empName(entry)}</span>
+                          {/* Content */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '0.875rem', lineHeight: 1.4 }}>
+                              <span style={{ fontWeight: '700', color: '#fff' }}>{item.name}</span>
+                              <span style={{ color: '#555', marginLeft: '0.35rem' }}>{item.detail}</span>
+                            </div>
+                          </div>
+                          {/* Timestamp */}
+                          <div style={{ fontSize: '0.75rem', color: '#444', flexShrink: 0, whiteSpace: 'nowrap' } as React.CSSProperties}>
+                            {item.time}
+                          </div>
                         </div>
-                        <div style={{ fontSize: '0.8rem', color: '#666' }}>{formatDate(entry.clock_in)}</div>
-                        <div style={{ fontSize: '0.8rem', color: '#aaa' }}>{formatTime(entry.clock_in)}</div>
-                        <div style={{ fontSize: '0.8rem', color: entry.clock_out ? '#aaa' : '#22c55e', fontWeight: entry.clock_out ? 'normal' : '600' }}>
-                          {entry.clock_out ? formatTime(entry.clock_out) : '● Live'}
-                        </div>
-                        <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#fff' }}>{entry.hours_worked?.toFixed(2) ?? '—'}</div>
-                        <div>{statusBadge(entry.approval_status)}</div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -473,7 +623,6 @@ export default function OwnerDashboard() {
                 )}
               </div>
 
-              {/* Share invite link */}
               <div style={{ marginTop: '1.5rem', background: '#1a1a1a', border: '1px solid rgba(0,217,255,0.12)', borderRadius: '14px', padding: '1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: '200px' }}>
                   <div style={{ fontWeight: '700', fontSize: '0.875rem', marginBottom: '0.25rem' }}>🔗 Share Invite Link</div>
@@ -492,9 +641,22 @@ export default function OwnerDashboard() {
           {/* ── TIME ENTRIES TAB ── */}
           {activeTab === 'timeentries' && (
             <div>
-              <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Time Entries</h1>
-                <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>{timeEntries?.length ?? 0} total entries</p>
+              <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Time Entries</h1>
+                  <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>{timeEntries?.length ?? 0} total entries</p>
+                </div>
+                {/* Feature 4: CSV Export */}
+                {timeEntries?.length > 0 && (
+                  <button
+                    onClick={exportTimeEntriesCSV}
+                    style={{ background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.2)', color: '#00d9ff', padding: '0.625rem 1.25rem', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.2s' }}
+                    onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.14)' }}
+                    onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.08)' }}
+                  >
+                    ⬇ Export CSV
+                  </button>
+                )}
               </div>
 
               <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', overflow: 'hidden' }}>
@@ -508,30 +670,40 @@ export default function OwnerDashboard() {
                       ))}
                     </div>
                     {timeEntries.map((entry: any, i: number) => (
-                      <div
-                        key={entry.id}
-                        style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: i < timeEntries.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none', transition: 'background 0.15s' }}
-                        onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
-                        onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
-                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: '800', flexShrink: 0, border: '1px solid rgba(255,255,255,0.06)' }}>
-                            {empInitial(entry)}
+                      <div key={entry.id}>
+                        <div
+                          style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: (!entry.notes && i < timeEntries.length - 1) ? '1px solid rgba(255,255,255,0.03)' : 'none', transition: 'background 0.15s' }}
+                          onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
+                          onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: '800', flexShrink: 0, border: '1px solid rgba(255,255,255,0.06)' }}>
+                              {empInitial(entry)}
+                            </div>
+                            <span style={{ fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{empName(entry)}</span>
                           </div>
-                          <span style={{ fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{empName(entry)}</span>
+                          <div style={{ fontSize: '0.8rem', color: '#666' }}>{formatDate(entry.clock_in)}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#aaa' }}>{formatTime(entry.clock_in)}</div>
+                          <div style={{ fontSize: '0.8rem', color: entry.clock_out ? '#aaa' : '#22c55e', fontWeight: entry.clock_out ? 'normal' : '600' }}>
+                            {entry.clock_out ? formatTime(entry.clock_out) : '● Live'}
+                          </div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: '700' }}>{entry.hours_worked?.toFixed(2) ?? '—'}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#555' }}>
+                            {entry.latitude && entry.longitude
+                              ? `📍 ${Number(entry.latitude).toFixed(3)}, ${Number(entry.longitude).toFixed(3)}`
+                              : '—'}
+                          </div>
+                          <div>{statusBadge(entry.approval_status)}</div>
                         </div>
-                        <div style={{ fontSize: '0.8rem', color: '#666' }}>{formatDate(entry.clock_in)}</div>
-                        <div style={{ fontSize: '0.8rem', color: '#aaa' }}>{formatTime(entry.clock_in)}</div>
-                        <div style={{ fontSize: '0.8rem', color: entry.clock_out ? '#aaa' : '#22c55e', fontWeight: entry.clock_out ? 'normal' : '600' }}>
-                          {entry.clock_out ? formatTime(entry.clock_out) : '● Live'}
-                        </div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: '700' }}>{entry.hours_worked?.toFixed(2) ?? '—'}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#555' }}>
-                          {entry.latitude && entry.longitude
-                            ? `📍 ${Number(entry.latitude).toFixed(3)}, ${Number(entry.longitude).toFixed(3)}`
-                            : '—'}
-                        </div>
-                        <div>{statusBadge(entry.approval_status)}</div>
+                        {/* Feature 2: Show notes in owner view */}
+                        {entry.notes && (
+                          <div style={{ padding: '0 1.5rem 0.875rem 1.5rem', borderBottom: i < timeEntries.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
+                            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '7px', padding: '0.5rem 0.875rem', fontSize: '0.78rem', color: '#666', borderLeft: '2px solid rgba(255,255,255,0.1)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '0.7rem', color: '#555', fontStyle: 'normal', fontWeight: '700' }}>NOTE:</span>
+                              "{entry.notes}"
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </>
@@ -543,17 +715,51 @@ export default function OwnerDashboard() {
           {/* ── PAYROLL TAB ── */}
           {activeTab === 'payroll' && (
             <div>
-              <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Payroll</h1>
-                <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>{payroll?.length ?? 0} records · {pendingPayrollCount} pending approval</p>
+              <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Payroll</h1>
+                  <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>{payroll?.length ?? 0} records · {pendingPayrollCount} pending</p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  {/* Feature 3: Bulk Approve */}
+                  {pendingPayrollCount > 0 && (
+                    <button
+                      onClick={handleBulkApprove}
+                      disabled={bulkApproving}
+                      style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', padding: '0.625rem 1.25rem', borderRadius: '10px', fontWeight: '700', cursor: bulkApproving ? 'not-allowed' : 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.2s', opacity: bulkApproving ? 0.6 : 1 }}
+                      onMouseEnter={e => { if (!bulkApproving) (e.currentTarget).style.background = 'rgba(34,197,94,0.18)' }}
+                      onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(34,197,94,0.1)' }}
+                    >
+                      {bulkApproving ? '⏳ Approving...' : `✓ Approve All Pending (${pendingPayrollCount})`}
+                    </button>
+                  )}
+                  {/* Feature 4: CSV Export */}
+                  {payroll?.length > 0 && (
+                    <button
+                      onClick={exportPayrollCSV}
+                      style={{ background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.2)', color: '#00d9ff', padding: '0.625rem 1.25rem', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.2s' }}
+                      onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.14)' }}
+                      onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.08)' }}
+                    >
+                      ⬇ Export CSV
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {pendingPayrollCount > 0 && (
+              {/* Bulk approve result banner */}
+              {bulkApproveMsg && (
+                <div style={{ background: bulkApproveMsg.startsWith('✓') ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)', border: `1px solid ${bulkApproveMsg.startsWith('✓') ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)'}`, color: bulkApproveMsg.startsWith('✓') ? '#22c55e' : '#ef4444', padding: '0.875rem 1.25rem', borderRadius: '10px', marginBottom: '1.25rem', fontSize: '0.875rem', fontWeight: '600' }}>
+                  {bulkApproveMsg}
+                </div>
+              )}
+
+              {pendingPayrollCount > 0 && !bulkApproveMsg && (
                 <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '12px', padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <span style={{ fontSize: '1.25rem' }}>⚠️</span>
                   <div>
                     <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#f59e0b' }}>{pendingPayrollCount} payroll {pendingPayrollCount === 1 ? 'record' : 'records'} need your approval</div>
-                    <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.15rem' }}>Review and approve below to mark employees as paid.</div>
+                    <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.15rem' }}>Use "Approve All" above or approve individually below.</div>
                   </div>
                 </div>
               )}
@@ -642,7 +848,6 @@ export default function OwnerDashboard() {
                   </p>
                 </div>
 
-                {/* Method toggle */}
                 <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '4px' }}>
                   {(['email', 'sms'] as const).map(m => (
                     <button
