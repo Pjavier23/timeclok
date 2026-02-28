@@ -15,10 +15,10 @@ export async function GET(request: Request) {
 
     const supabase = createServiceClient()
 
-    // Get user profile
+    // Get user profile + company
     const { data: userData } = await supabase
       .from('users')
-      .select('full_name, company_id, user_type')
+      .select('full_name, company_id, user_type, companies(id, name)')
       .eq('id', user.id)
       .single()
 
@@ -76,8 +76,11 @@ export async function GET(request: Request) {
     const totalTaxReserved = payroll
       .reduce((sum: number, pr: any) => sum + (pr.tax_withheld || 0), 0)
 
+    const company = (userData as any)?.companies || null
+
     return Response.json({
       user: { id: user.id, email: user.email, ...userData },
+      company,
       employee: employee || null,
       timeEntries,
       payroll,

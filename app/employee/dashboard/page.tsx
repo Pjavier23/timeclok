@@ -236,7 +236,7 @@ export default function EmployeeDashboard() {
     )
   }
 
-  const { user, employee, timeEntries, payroll, activeEntry, stats } = data || {}
+  const { user, company, employee, timeEntries, payroll, activeEntry, stats } = data || {}
   const isClockedIn = !!activeEntry
 
   const formatDate = (ts: string) => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -278,9 +278,17 @@ export default function EmployeeDashboard() {
 
       {/* ── HEADER ── */}
       <header style={{ background: '#0c0c0c', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0 1rem', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, width: '100%', boxSizing: 'border-box' } as React.CSSProperties}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-          <span style={{ fontSize: '1.2rem' }}>⏱</span>
-          <span style={{ fontSize: '1.1rem', fontWeight: '900', background: 'linear-gradient(135deg, #00d9ff, #0099cc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } as React.CSSProperties}>TimeClok</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0, minWidth: 0 }}>
+          <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>⏱</span>
+          <span style={{ fontSize: '1.1rem', fontWeight: '900', background: 'linear-gradient(135deg, #00d9ff, #0099cc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', flexShrink: 0 } as React.CSSProperties}>TimeClok</span>
+          {company?.name && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', minWidth: 0 }}>
+              <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.9rem', flexShrink: 0 }}>›</span>
+              <span style={{ fontSize: '0.75rem', color: '#00d9ff', fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: isMobile ? '90px' : '160px', background: 'rgba(0,217,255,0.08)', padding: '0.2rem 0.5rem', borderRadius: '6px', border: '1px solid rgba(0,217,255,0.2)' } as React.CSSProperties}>
+                {company.name}
+              </span>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
@@ -493,10 +501,21 @@ export default function EmployeeDashboard() {
                   </div>
                 ) : (
                   <div style={{ marginBottom: '1.5rem' }}>
-                    <div style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '0.25rem' }}>
                       Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'} 👋
                     </div>
-                    <div style={{ fontSize: '1rem', color: '#555', marginBottom: '1rem' }}>
+                    {user?.full_name && (
+                      <div style={{ fontSize: '1rem', color: '#ccc', fontWeight: '600', marginBottom: '0.4rem' }}>
+                        {user.full_name}
+                      </div>
+                    )}
+                    {company?.name && (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(0,217,255,0.07)', border: '1px solid rgba(0,217,255,0.18)', borderRadius: '8px', padding: '0.3rem 0.75rem', marginBottom: '0.75rem' }}>
+                        <span style={{ fontSize: '0.85rem' }}>🏢</span>
+                        <span style={{ fontSize: '0.8rem', color: '#00d9ff', fontWeight: '700' }}>{company.name}</span>
+                      </div>
+                    )}
+                    <div style={{ fontSize: '0.875rem', color: '#555', marginBottom: '0.5rem' }}>
                       {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                     </div>
                     {hourlyRate > 0 && (
