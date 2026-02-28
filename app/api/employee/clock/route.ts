@@ -40,15 +40,52 @@ export async function POST(request: Request) {
         return Response.json({ error: 'Already clocked in' }, { status: 400 })
       }
 
+      // Reverse geocode coordinates → human-readable address (free, no API key)
+      let locationName: string | null = null
+      if (lat && lng) {
+        try {
+          const geoRes = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`,
+            { headers: { 'User-Agent': 'TimeClok/1.0 (timeclok.vercel.app)' } }
+          )
+          if (geoRes.ok) {
+            const geoData = await geoRes.json()
+            const a = geoData.address || {}
+            // Build a clean short address: "123 Main St, Miami, FL"
+            const parts = [
+              a.house_number && a.road ? `${a.house_number} ${a.road}` : a.road,
+              a.city || a.town || a.village || a.suburb || a.neighbourhood,
+              a.state_code || a.state,
+            ].filter(Boolean)
+            locationName = parts.join(', ') || geoData.display_name?.split(',').slice(0, 3).join(',').trim() || null
+          }
+        } catch {
+          // Geocoding failed — just store coords only, no crash
+        }
+      }
+
+      const insertPayload: Record<string, any> = {
+        employee_id: employee.id,
+        clock_in: new Date().toISOString(),
+        latitude: lat || null,
+        longitude: lng || null,
+        approval_status: 'pending',
+      }
+
+      // Try inserting with location_name; fall back if column doesn't exist yet
+      if (locationName) {
+        const { data: entryWithLoc, error: errWithLoc } = await supabase
+          .from('time_entries')
+          .insert([{ ...insertPayload, location_name: locationName }])
+          .select()
+          .single()
+        if (!errWithLoc) return Response.json({ success: true, entry: entryWithLoc, locationName })
+        // Column missing — fall through to insert without it
+      }
+
       const { data: entry, error: insertErr } = await supabase
         .from('time_entries')
-        .insert([{
-          employee_id: employee.id,
-          clock_in: new Date().toISOString(),
-          latitude: lat || null,
-          longitude: lng || null,
-          approval_status: 'pending',
-        }])
+        .insert([insertPayload])
         .select()
         .single()
 

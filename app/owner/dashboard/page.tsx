@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
 
-type Tab = 'overview' | 'employees' | 'payroll' | 'timeentries'
+type Tab = 'overview' | 'employees' | 'payroll' | 'timeentries' | 'billing' | 'settings'
 
 export default function OwnerDashboard() {
   const router = useRouter()
@@ -28,6 +28,13 @@ export default function OwnerDashboard() {
   // Feature 3: Bulk approve state
   const [bulkApproving, setBulkApproving] = useState(false)
   const [bulkApproveMsg, setBulkApproveMsg] = useState<string | null>(null)
+
+  // Settings state
+  const [settingsPaySchedule, setSettingsPaySchedule] = useState('weekly')
+  const [settingsCompanyName, setSettingsCompanyName] = useState('')
+  const [settingsSaving, setSettingsSaving] = useState(false)
+  const [settingsSaved, setSettingsSaved] = useState(false)
+  const [settingsMigrationNeeded, setSettingsMigrationNeeded] = useState(false)
 
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false)
@@ -62,6 +69,10 @@ export default function OwnerDashboard() {
 
     const json = await res.json()
     setData(json)
+    if (json.company) {
+      setSettingsCompanyName(json.company.name || '')
+      setSettingsPaySchedule(json.company.pay_schedule || 'weekly')
+    }
     setLoading(false)
   }, [])
 
@@ -162,7 +173,7 @@ export default function OwnerDashboard() {
       new Date(e.clock_in).toLocaleTimeString(),
       e.clock_out ? new Date(e.clock_out).toLocaleTimeString() : '',
       e.hours_worked?.toFixed(2) ?? '',
-      e.latitude && e.longitude ? `${Number(e.latitude).toFixed(4)},${Number(e.longitude).toFixed(4)}` : '',
+      e.location_name || (e.latitude && e.longitude ? `${Number(e.latitude).toFixed(4)},${Number(e.longitude).toFixed(4)}` : ''),
       e.approval_status ?? '',
       e.notes ?? '',
     ])
@@ -218,6 +229,22 @@ export default function OwnerDashboard() {
     if (json.success) {
       await fetchData()
     }
+  }
+
+  const handleSaveSettings = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    setSettingsSaving(true)
+    setSettingsSaved(false)
+    const res = await fetch('/api/owner/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ name: settingsCompanyName, pay_schedule: settingsPaySchedule }),
+    })
+    const json = await res.json()
+    setSettingsSaving(false)
+    if (json.migration_needed) setSettingsMigrationNeeded(true)
+    if (json.success) { setSettingsSaved(true); setTimeout(() => setSettingsSaved(false), 3000); await fetchData() }
   }
 
   const resetInviteModal = () => {
@@ -335,6 +362,7 @@ export default function OwnerDashboard() {
     { id: 'employees', icon: '⬡', label: 'Employees' },
     { id: 'timeentries', icon: '◷', label: 'Time Entries' },
     { id: 'payroll', icon: '◈', label: 'Payroll' },
+    { id: 'billing', icon: '💳', label: 'Billing' },
   ]
 
   const pendingPayrollCount = (payroll || []).filter((p: any) => p.status === 'pending').length
@@ -385,7 +413,7 @@ export default function OwnerDashboard() {
             {navItems.map(item => (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => item.id === 'billing' ? router.push('/owner/billing') : setActiveTab(item.id)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -572,6 +600,22 @@ export default function OwnerDashboard() {
           {/* ── EMPLOYEES TAB ── */}
           {activeTab === 'employees' && (
             <div>
+              {/* Upgrade nudge banner */}
+              {company?.subscription_status !== 'active' && (
+                <div
+                  onClick={() => router.push('/owner/billing')}
+                  style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '12px', padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.875rem', cursor: 'pointer', transition: 'background 0.15s' }}
+                  onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(245,158,11,0.1)' }}
+                  onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(245,158,11,0.07)' }}
+                >
+                  <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>⚡</span>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontWeight: '700', fontSize: '0.875rem', color: '#f59e0b' }}>Upgrade to Pro</span>
+                    <span style={{ color: '#888', fontSize: '0.875rem' }}> to unlock payroll processing and unlimited features — $99/mo</span>
+                  </div>
+                  <span style={{ color: '#f59e0b', fontSize: '0.8rem', fontWeight: '700', flexShrink: 0 }}>→</span>
+                </div>
+              )}
               <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                   <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Employees</h1>
@@ -598,8 +642,8 @@ export default function OwnerDashboard() {
                 ) : (
                   <>
                     {!isMobile && (
-                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                        {['Employee', 'Email', 'Rate', 'Type', 'Since'].map(h => (
+                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr 0.5fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        {['Employee', 'Email', 'Rate', 'Type', 'Since', ''].map(h => (
                           <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
                         ))}
                       </div>
@@ -607,18 +651,32 @@ export default function OwnerDashboard() {
                     {employees.map((emp: any, i: number) => {
                       const isActive = activeSessions.some((e: any) => e.employee_id === emp.id || e.employees?.id === emp.id)
                       return isMobile ? (
-                        /* Mobile: card layout */
-                        <div key={emp.id} style={{ padding: '1rem', borderBottom: i < employees.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                        /* Mobile: card layout — clickable */
+                        <div
+                          key={emp.id}
+                          onClick={() => router.push(`/owner/employees/${emp.id}`)}
+                          style={{ padding: '1rem', borderBottom: i < employees.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', cursor: 'pointer', transition: 'background 0.15s' }}
+                          onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
+                          onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
+                        >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                            <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: `linear-gradient(135deg, ${isActive ? '#22c55e' : '#333'}, ${isActive ? '#16a34a' : '#222'})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: '800', color: isActive ? '#fff' : '#555', flexShrink: 0, position: 'relative' } as React.CSSProperties}>
-                              {(emp.users?.full_name || emp.users?.email || 'U')[0].toUpperCase()}
+                            <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: `linear-gradient(135deg, ${isActive ? '#22c55e' : '#333'}, ${isActive ? '#16a34a' : '#222'})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: '800', color: isActive ? '#fff' : '#555', flexShrink: 0, position: 'relative', overflow: 'hidden' } as React.CSSProperties}>
+                              {emp.avatar_url
+                                ? <img src={emp.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                : (emp.users?.full_name || emp.users?.email || 'U')[0].toUpperCase()}
                               <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', borderRadius: '50%', background: isActive ? '#22c55e' : '#555', border: '2px solid #1a1a1a' } as React.CSSProperties} />
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{emp.users?.full_name || '—'}</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>{emp.users?.full_name || '—'}</span>
+                                {emp.position && <span style={{ background: 'rgba(0,217,255,0.1)', border: '1px solid rgba(0,217,255,0.2)', color: '#00d9ff', padding: '0.1rem 0.45rem', borderRadius: '100px', fontSize: '0.65rem', fontWeight: '700' }}>{emp.position}</span>}
+                              </div>
                               <div style={{ fontSize: '0.78rem', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{emp.users?.email || '—'}</div>
                             </div>
-                            <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#00d9ff', flexShrink: 0 }}>${emp.hourly_rate?.toFixed(0)}/hr</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem', flexShrink: 0 } as React.CSSProperties}>
+                              <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#00d9ff' }}>${emp.hourly_rate?.toFixed(0)}/hr</div>
+                              <div style={{ fontSize: '0.7rem', color: '#555' }}>›</div>
+                            </div>
                           </div>
                           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                             {statusBadge(emp.employee_type || 'w2')}
@@ -627,24 +685,31 @@ export default function OwnerDashboard() {
                           </div>
                         </div>
                       ) : (
-                        /* Desktop: table row */
+                        /* Desktop: table row — clickable */
                         <div
                           key={emp.id}
-                          style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr', padding: '1rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: i < employees.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', transition: 'background 0.15s' }}
+                          onClick={() => router.push(`/owner/employees/${emp.id}`)}
+                          style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr 0.5fr', padding: '1rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: i < employees.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', transition: 'background 0.15s', cursor: 'pointer' }}
                           onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
                           onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: `linear-gradient(135deg, ${isActive ? '#22c55e' : '#333'}, ${isActive ? '#16a34a' : '#222'})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: '800', color: isActive ? '#fff' : '#555', flexShrink: 0, position: 'relative' } as React.CSSProperties}>
-                              {(emp.users?.full_name || emp.users?.email || 'U')[0].toUpperCase()}
+                            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: `linear-gradient(135deg, ${isActive ? '#22c55e' : '#333'}, ${isActive ? '#16a34a' : '#222'})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: '800', color: isActive ? '#fff' : '#555', flexShrink: 0, position: 'relative', overflow: 'hidden' } as React.CSSProperties}>
+                              {emp.avatar_url
+                                ? <img src={emp.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                : (emp.users?.full_name || emp.users?.email || 'U')[0].toUpperCase()}
                               <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', borderRadius: '50%', background: isActive ? '#22c55e' : '#555', border: '2px solid #1a1a1a' } as React.CSSProperties} />
                             </div>
-                            <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>{emp.users?.full_name || '—'}</span>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{emp.users?.full_name || '—'}</div>
+                              {emp.position && <div style={{ fontSize: '0.72rem', color: '#00d9ff', marginTop: '0.1rem' }}>{emp.position}</div>}
+                            </div>
                           </div>
                           <div style={{ fontSize: '0.8rem', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{emp.users?.email || '—'}</div>
                           <div style={{ fontSize: '0.875rem', fontWeight: '700', color: '#00d9ff' }}>${emp.hourly_rate?.toFixed(2)}/hr</div>
                           <div>{statusBadge(emp.employee_type || 'w2')}</div>
                           <div style={{ fontSize: '0.8rem', color: '#555' }}>{formatDate(emp.created_at)}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#444' }}>›</div>
                         </div>
                       )
                     })}
@@ -737,7 +802,7 @@ export default function OwnerDashboard() {
                               <div style={{ fontSize: '0.8rem', color: '#aaa' }}>{formatTime(entry.clock_in)}</div>
                               <div style={{ fontSize: '0.8rem', color: entry.clock_out ? '#aaa' : '#22c55e', fontWeight: entry.clock_out ? 'normal' : '600' }}>{entry.clock_out ? formatTime(entry.clock_out) : '● Live'}</div>
                               <div style={{ fontSize: '0.85rem', fontWeight: '700' }}>{entry.hours_worked?.toFixed(2) ?? '—'}</div>
-                              <div style={{ fontSize: '0.75rem', color: '#555' }}>{entry.latitude ? `📍 ${Number(entry.latitude).toFixed(3)}, ${Number(entry.longitude).toFixed(3)}` : '—'}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{entry.location_name ? `📍 ${entry.location_name}` : entry.latitude ? `📍 ${Number(entry.latitude).toFixed(3)}, ${Number(entry.longitude).toFixed(3)}` : '—'}</div>
                               <div>{statusBadge(entry.approval_status)}</div>
                             </div>
                             {entry.notes && (
@@ -881,6 +946,74 @@ export default function OwnerDashboard() {
               </div>
             </div>
           )}
+
+          {/* ── SETTINGS TAB ── */}
+          {activeTab === 'settings' && (
+            <div>
+              <div style={{ marginBottom: '2rem' }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Settings</h1>
+                <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>Company preferences and pay schedule</p>
+              </div>
+
+              {/* Company name */}
+              <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.5rem', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '0.78rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Company Info</div>
+                <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '600', marginBottom: '0.5rem' }}>Company Name</label>
+                <input
+                  type="text"
+                  value={settingsCompanyName}
+                  onChange={e => setSettingsCompanyName(e.target.value)}
+                  placeholder="Your Company LLC"
+                  style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '0.875rem 1rem', color: '#fff', fontSize: '0.9375rem', outline: 'none' } as React.CSSProperties}
+                  onFocus={e => { e.target.style.borderColor = 'rgba(0,217,255,0.4)' }}
+                  onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)' }}
+                />
+              </div>
+
+              {/* Pay Schedule */}
+              <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.5rem', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '0.78rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.5rem' }}>Pay Schedule</div>
+                <div style={{ fontSize: '0.8rem', color: '#444', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+                  How often do your employees get paid? This affects payroll periods.
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '0.75rem' }}>
+                  {[
+                    { value: 'weekly', label: 'Weekly', desc: 'Every 7 days', icon: '📅' },
+                    { value: 'biweekly', label: 'Bi-Weekly', desc: 'Every 2 weeks', icon: '📆' },
+                    { value: 'semimonthly', label: 'Semi-Monthly', desc: '1st & 15th', icon: '🗓' },
+                    { value: 'monthly', label: 'Monthly', desc: 'Once a month', icon: '📋' },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSettingsPaySchedule(opt.value)}
+                      style={{ padding: '1rem', borderRadius: '12px', border: `2px solid ${settingsPaySchedule === opt.value ? '#00d9ff' : 'rgba(255,255,255,0.06)'}`, background: settingsPaySchedule === opt.value ? 'rgba(0,217,255,0.08)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' } as React.CSSProperties}
+                    >
+                      <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{opt.icon}</div>
+                      <div style={{ fontSize: '0.875rem', fontWeight: '700', color: settingsPaySchedule === opt.value ? '#fff' : '#888', marginBottom: '0.2rem' }}>{opt.label}</div>
+                      <div style={{ fontSize: '0.72rem', color: settingsPaySchedule === opt.value ? '#00d9ff' : '#444' }}>{opt.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {settingsMigrationNeeded && (
+                <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '10px', padding: '1rem 1.25rem', marginBottom: '1rem', fontSize: '0.8rem', color: '#f59e0b' }}>
+                  ⚙️ Run this in Supabase SQL Editor to save pay schedule:<br />
+                  <code style={{ display: 'block', marginTop: '0.5rem', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', borderRadius: '6px', fontSize: '0.75rem', color: '#ccc' }}>
+                    {'ALTER TABLE companies ADD COLUMN IF NOT EXISTS pay_schedule TEXT DEFAULT \'weekly\';'}
+                  </code>
+                </div>
+              )}
+
+              <button
+                onClick={handleSaveSettings}
+                disabled={settingsSaving}
+                style={{ padding: '0.875rem 2rem', background: settingsSaved ? 'rgba(34,197,94,0.15)' : '#00d9ff', border: settingsSaved ? '1px solid rgba(34,197,94,0.3)' : 'none', color: settingsSaved ? '#22c55e' : '#000', borderRadius: '10px', fontWeight: '800', cursor: settingsSaving ? 'not-allowed' : 'pointer', fontSize: '0.95rem', opacity: settingsSaving ? 0.6 : 1 } as React.CSSProperties}
+              >
+                {settingsSaved ? '✓ Saved!' : settingsSaving ? 'Saving...' : 'Save Settings'}
+              </button>
+            </div>
+          )}
         </main>
       </div>
 
@@ -890,7 +1023,7 @@ export default function OwnerDashboard() {
           {navItems.map(item => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => item.id === 'billing' ? router.push('/owner/billing') : setActiveTab(item.id)}
               style={{
                 flex: 1,
                 display: 'flex',

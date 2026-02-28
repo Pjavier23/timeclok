@@ -464,9 +464,10 @@ export default function EmployeeDashboard() {
                       </div>
                     )}
 
-                    {activeEntry.latitude && (
-                      <div style={{ fontSize: '0.75rem', color: '#444', marginBottom: '1.25rem' }}>
-                        📍 {Number(activeEntry.latitude).toFixed(4)}, {Number(activeEntry.longitude).toFixed(4)}
+                    {(activeEntry.location_name || activeEntry.latitude) && (
+                      <div style={{ fontSize: '0.75rem', color: '#555', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.3rem', justifyContent: 'center' }}>
+                        <span>📍</span>
+                        <span>{activeEntry.location_name || `${Number(activeEntry.latitude).toFixed(4)}, ${Number(activeEntry.longitude).toFixed(4)}`}</span>
                       </div>
                     )}
 
