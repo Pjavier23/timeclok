@@ -16,6 +16,7 @@ export default function OwnerDashboard() {
   const [data, setData] = useState<any>(null)
   const [copiedLink, setCopiedLink] = useState(false)
   const [payrollUpdating, setPayrollUpdating] = useState<string | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false)
@@ -127,122 +128,12 @@ export default function OwnerDashboard() {
     setInviteResult(null)
   }
 
-  // ── Styles ──────────────────────────────────────────
-  const S = {
-    page: { minHeight: '100vh', background: '#0f0f0f', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' } as React.CSSProperties,
-    header: {
-      background: '#0f0f0f',
-      borderBottom: '1px solid rgba(255,255,255,0.08)',
-      padding: '1rem 2rem',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      position: 'sticky' as const,
-      top: 0,
-      zIndex: 50,
-    },
-    logo: { fontSize: '1.4rem', fontWeight: '800', color: '#00d9ff', margin: 0 },
-    companyName: { fontSize: '0.8rem', color: '#666', marginTop: '2px' },
-    content: { padding: '2rem', maxWidth: '1200px', margin: '0 auto' },
-    tabs: {
-      display: 'flex',
-      gap: '0.5rem',
-      marginBottom: '2rem',
-      borderBottom: '1px solid rgba(255,255,255,0.08)',
-      paddingBottom: '0',
-    },
-    tab: (active: boolean) => ({
-      padding: '0.75rem 1.25rem',
-      background: 'transparent',
-      border: 'none',
-      borderBottom: active ? '2px solid #00d9ff' : '2px solid transparent',
-      color: active ? '#00d9ff' : '#666',
-      fontWeight: active ? '700' : '500',
-      fontSize: '0.9rem',
-      cursor: 'pointer',
-      transition: 'all 0.2s',
-      marginBottom: '-1px',
-    }) as React.CSSProperties,
-    grid3: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' },
-    statCard: (color: string) => ({
-      background: '#1a1a1a',
-      border: `1px solid rgba(255,255,255,0.08)`,
-      borderRadius: '12px',
-      padding: '1.5rem',
-      borderTop: `3px solid ${color}`,
-    }) as React.CSSProperties,
-    statLabel: { fontSize: '0.8rem', color: '#666', marginBottom: '0.5rem', textTransform: 'uppercase' as const, letterSpacing: '0.05em' },
-    statValue: { fontSize: '2.5rem', fontWeight: '800' },
-    card: {
-      background: '#1a1a1a',
-      border: '1px solid rgba(255,255,255,0.08)',
-      borderRadius: '12px',
-      overflow: 'hidden',
-      marginBottom: '1.5rem',
-    } as React.CSSProperties,
-    cardHeader: {
-      padding: '1.25rem 1.5rem',
-      borderBottom: '1px solid rgba(255,255,255,0.08)',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    cardTitle: { fontWeight: '700', fontSize: '1rem' },
-    table: { width: '100%', borderCollapse: 'collapse' as const },
-    th: { padding: '0.875rem 1.5rem', textAlign: 'left' as const, fontSize: '0.8rem', color: '#666', fontWeight: '600', textTransform: 'uppercase' as const, letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.06)' },
-    td: { padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '0.9rem' },
-    badge: (color: string, bg: string) => ({
-      display: 'inline-block',
-      padding: '0.2rem 0.6rem',
-      borderRadius: '100px',
-      fontSize: '0.75rem',
-      fontWeight: '600',
-      color,
-      background: bg,
-    }) as React.CSSProperties,
-    btn: (color: string, bg: string) => ({
-      padding: '0.4rem 0.875rem',
-      background: bg,
-      color,
-      border: 'none',
-      borderRadius: '6px',
-      fontSize: '0.8rem',
-      fontWeight: '600',
-      cursor: 'pointer',
-    }) as React.CSSProperties,
-    logoutBtn: {
-      background: 'rgba(239,68,68,0.1)',
-      border: '1px solid rgba(239,68,68,0.3)',
-      color: '#ef4444',
-      padding: '0.5rem 1rem',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      fontWeight: '600',
-      fontSize: '0.875rem',
-    },
-    inviteBtn: {
-      background: '#00d9ff',
-      color: '#000',
-      border: 'none',
-      padding: '0.625rem 1.25rem',
-      borderRadius: '8px',
-      fontWeight: '700',
-      cursor: 'pointer',
-      fontSize: '0.875rem',
-    },
-    emptyState: {
-      padding: '3rem',
-      textAlign: 'center' as const,
-      color: '#555',
-    },
-  }
-
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f0f0f', color: '#fff' }}>
-        <div>
-          <div style={{ fontSize: '2rem', marginBottom: '0.5rem', textAlign: 'center' }}>⏱</div>
-          <div style={{ color: '#666' }}>Loading dashboard...</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f0f0f', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '1rem', animation: 'pulse 1.5s infinite' }}>⏱</div>
+          <div style={{ color: '#555', fontSize: '0.9rem', letterSpacing: '0.05em' }}>LOADING DASHBOARD</div>
         </div>
       </div>
     )
@@ -250,418 +141,598 @@ export default function OwnerDashboard() {
 
   const { company, employees, timeEntries, payroll, stats } = data || {}
 
+  // Derive who's clocked in
+  const activeSessions = (timeEntries || []).filter((e: any) => !e.clock_out)
+
   const statusBadge = (status: string) => {
     const map: Record<string, [string, string]> = {
-      pending: ['#f59e0b', 'rgba(245,158,11,0.1)'],
-      approved: ['#22c55e', 'rgba(34,197,94,0.1)'],
-      paid: ['#00d9ff', 'rgba(0,217,255,0.1)'],
-      rejected: ['#ef4444', 'rgba(239,68,68,0.1)'],
+      pending: ['#f59e0b', 'rgba(245,158,11,0.12)'],
+      approved: ['#22c55e', 'rgba(34,197,94,0.12)'],
+      paid: ['#00d9ff', 'rgba(0,217,255,0.12)'],
+      rejected: ['#ef4444', 'rgba(239,68,68,0.12)'],
+      w2: ['#a78bfa', 'rgba(167,139,250,0.12)'],
+      '1099': ['#f472b6', 'rgba(244,114,182,0.12)'],
     }
-    const [color, bg] = map[status] || ['#999', 'rgba(255,255,255,0.1)']
-    return <span style={S.badge(color, bg)}>{status}</span>
+    const [color, bg] = map[status] || ['#888', 'rgba(255,255,255,0.08)']
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.65rem', borderRadius: '100px', fontSize: '0.75rem', fontWeight: '700', color, background: bg, letterSpacing: '0.02em' }}>
+        {status}
+      </span>
+    )
   }
 
   const formatDate = (ts: string) => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   const formatTime = (ts: string) => new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-  const empName = (entry: any) => entry?.employees?.users?.full_name || entry?.employees?.users?.email || 'Unknown'
+  const empName = (entry: any) => entry?.employees?.users?.full_name || entry?.employees?.users?.email?.split('@')[0] || 'Unknown'
+  const empInitial = (entry: any) => (entry?.employees?.users?.full_name || entry?.employees?.users?.email || 'U')[0].toUpperCase()
+
+  const navItems: { id: Tab; icon: string; label: string }[] = [
+    { id: 'overview', icon: '▦', label: 'Overview' },
+    { id: 'employees', icon: '⬡', label: 'Employees' },
+    { id: 'timeentries', icon: '◷', label: 'Time Entries' },
+    { id: 'payroll', icon: '◈', label: 'Payroll' },
+  ]
+
+  const pendingPayrollCount = (payroll || []).filter((p: any) => p.status === 'pending').length
 
   return (
-    <div style={S.page}>
-      {/* Header */}
-      <header style={S.header}>
-        <div>
-          <div style={S.logo}>⏱ TimeClok</div>
-          {company && <div style={S.companyName}>{company.name}</div>}
+    <div style={{ minHeight: '100vh', background: '#0f0f0f', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', display: 'flex', flexDirection: 'column' } as React.CSSProperties}>
+
+      {/* ── TOP NAV ── */}
+      <header style={{ background: '#0f0f0f', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0 1.5rem', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, backdropFilter: 'blur(10px)' } as React.CSSProperties}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.2rem' }}>⏱</span>
+            <span style={{ fontSize: '1.1rem', fontWeight: '900', background: 'linear-gradient(135deg, #00d9ff, #0099cc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } as React.CSSProperties}>TimeClok</span>
+          </div>
+          {company && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '1rem' }}>›</span>
+              <span style={{ fontSize: '0.8rem', color: '#555', fontWeight: '600' }}>{company.name}</span>
+            </div>
+          )}
         </div>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <span style={{ color: '#555', fontSize: '0.8rem', display: 'none' }}>{/* TODO: show user email */}</span>
-          <button onClick={handleLogout} style={S.logoutBtn}>Sign Out</button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {activeSessions.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', padding: '0.3rem 0.75rem', borderRadius: '100px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', display: 'block' }} />
+              <span style={{ fontSize: '0.75rem', color: '#22c55e', fontWeight: '700' }}>{activeSessions.length} working now</span>
+            </div>
+          )}
+          {pendingPayrollCount > 0 && (
+            <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', padding: '0.3rem 0.75rem', borderRadius: '100px', fontSize: '0.75rem', color: '#f59e0b', fontWeight: '700', cursor: 'pointer' }} onClick={() => setActiveTab('payroll')}>
+              ⚠ {pendingPayrollCount} pending payroll
+            </div>
+          )}
+          <button
+            onClick={handleLogout}
+            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#666', padding: '0.4rem 0.875rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.8rem', transition: 'all 0.2s' }}
+            onMouseEnter={e => { (e.currentTarget).style.borderColor = 'rgba(239,68,68,0.4)'; (e.currentTarget).style.color = '#ef4444' }}
+            onMouseLeave={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget).style.color = '#666' }}
+          >
+            Sign Out
+          </button>
         </div>
       </header>
 
-      <div style={S.content}>
-        {error && (
-          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
-            ⚠️ {error}
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div style={S.tabs}>
-          {(['overview', 'employees', 'timeentries', 'payroll'] as Tab[]).map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={S.tab(activeTab === tab)}>
-              {tab === 'overview' && '📊 '}
-              {tab === 'employees' && '👥 '}
-              {tab === 'timeentries' && '⏰ '}
-              {tab === 'payroll' && '💰 '}
-              {tab.charAt(0).toUpperCase() + tab.slice(1).replace('timeentries', 'Time Entries')}
+      <div style={{ display: 'flex', flex: 1 } as React.CSSProperties}>
+        {/* ── SIDEBAR NAV ── */}
+        <nav style={{ width: '220px', borderRight: '1px solid rgba(255,255,255,0.06)', padding: '1.25rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', flexShrink: 0, background: '#0c0c0c' } as React.CSSProperties}>
+          {navItems.map(item => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.625rem',
+                padding: '0.75rem 1rem',
+                borderRadius: '10px',
+                border: 'none',
+                background: activeTab === item.id ? 'rgba(0,217,255,0.08)' : 'transparent',
+                color: activeTab === item.id ? '#00d9ff' : '#666',
+                fontWeight: activeTab === item.id ? '700' : '500',
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+                transition: 'all 0.15s',
+                borderLeft: activeTab === item.id ? '3px solid #00d9ff' : '3px solid transparent',
+              } as React.CSSProperties}
+              onMouseEnter={e => { if (activeTab !== item.id) { (e.currentTarget).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget).style.color = '#999' } }}
+              onMouseLeave={e => { if (activeTab !== item.id) { (e.currentTarget).style.background = 'transparent'; (e.currentTarget).style.color = '#666' } }}
+            >
+              <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center' } as React.CSSProperties}>{item.icon}</span>
+              {item.label}
+              {item.id === 'payroll' && pendingPayrollCount > 0 && (
+                <span style={{ marginLeft: 'auto', background: '#f59e0b', color: '#000', fontSize: '0.65rem', fontWeight: '800', padding: '0.15rem 0.45rem', borderRadius: '100px' }}>
+                  {pendingPayrollCount}
+                </span>
+              )}
             </button>
           ))}
-        </div>
 
-        {/* ── OVERVIEW TAB ── */}
-        {activeTab === 'overview' && (
-          <div>
-            <div style={S.grid3}>
-              <div style={S.statCard('#00d9ff')}>
-                <div style={S.statLabel}>Total Employees</div>
-                <div style={{ ...S.statValue, color: '#00d9ff' }}>{stats?.employeeCount ?? 0}</div>
-              </div>
-              <div style={S.statCard('#22c55e')}>
-                <div style={S.statLabel}>Hours This Week</div>
-                <div style={{ ...S.statValue, color: '#22c55e' }}>{stats?.weeklyHours ?? 0}</div>
-              </div>
-              <div style={S.statCard('#f59e0b')}>
-                <div style={S.statLabel}>Pending Payroll</div>
-                <div style={{ ...S.statValue, color: '#f59e0b' }}>${stats?.pendingPayrollTotal?.toFixed(2) ?? '0.00'}</div>
-              </div>
-            </div>
+          <div style={{ flex: 1 }} />
 
-            {/* Recent time entries */}
-            <div style={S.card}>
-              <div style={S.cardHeader}>
-                <div style={S.cardTitle}>Recent Activity</div>
-              </div>
-              {timeEntries?.length === 0 ? (
-                <div style={S.emptyState}>No time entries yet</div>
-              ) : (
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      <th style={S.th}>Employee</th>
-                      <th style={S.th}>Date</th>
-                      <th style={S.th}>Clock In</th>
-                      <th style={S.th}>Clock Out</th>
-                      <th style={S.th}>Hours</th>
-                      <th style={S.th}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(timeEntries || []).slice(0, 10).map((entry: any) => (
-                      <tr key={entry.id}>
-                        <td style={S.td}>{empName(entry)}</td>
-                        <td style={S.td}>{formatDate(entry.clock_in)}</td>
-                        <td style={S.td}>{formatTime(entry.clock_in)}</td>
-                        <td style={S.td}>{entry.clock_out ? formatTime(entry.clock_out) : <span style={{ color: '#22c55e' }}>● Active</span>}</td>
-                        <td style={S.td}>{entry.hours_worked?.toFixed(2) ?? '—'}</td>
-                        <td style={S.td}>{statusBadge(entry.approval_status)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+          {/* Quick invite at bottom */}
+          <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(0,217,255,0.05)', border: '1px solid rgba(0,217,255,0.12)', borderRadius: '10px' }}>
+            <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '700', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Grow your team</div>
+            <button
+              onClick={() => { setShowInviteModal(true); setInviteResult(null) }}
+              style={{ width: '100%', padding: '0.5rem', background: '#00d9ff', color: '#000', border: 'none', borderRadius: '7px', fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem' }}
+            >
+              + Invite Employee
+            </button>
           </div>
-        )}
+        </nav>
 
-        {/* ── EMPLOYEES TAB ── */}
-        {activeTab === 'employees' && (
-          <div>
-            <div style={S.card}>
-              <div style={S.cardHeader}>
-                <div style={S.cardTitle}>Team Members ({employees?.length ?? 0})</div>
-                <button onClick={() => { setShowInviteModal(true); setInviteResult(null) }} style={S.inviteBtn}>
-                  + Invite Employee
+        {/* ── MAIN CONTENT ── */}
+        <main style={{ flex: 1, padding: '2rem', overflowY: 'auto', minWidth: 0 } as React.CSSProperties}>
+          {error && (
+            <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', padding: '1rem 1.25rem', borderRadius: '10px', marginBottom: '1.5rem', fontSize: '0.875rem' }}>
+              ⚠️ {error}
+            </div>
+          )}
+
+          {/* ── OVERVIEW ── */}
+          {activeTab === 'overview' && (
+            <div>
+              <div style={{ marginBottom: '2rem' }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Dashboard</h1>
+                <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>
+                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+
+              {/* Stat cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                {[
+                  { label: 'Total Employees', value: stats?.employeeCount ?? 0, icon: '👥', color: '#00d9ff', sub: 'on your team' },
+                  { label: 'Working Now', value: activeSessions.length, icon: '🟢', color: '#22c55e', sub: 'clocked in live' },
+                  { label: 'Hours This Week', value: `${stats?.weeklyHours ?? 0}h`, icon: '📊', color: '#a78bfa', sub: 'across all staff' },
+                  { label: 'Pending Payroll', value: `$${(stats?.pendingPayrollTotal ?? 0).toFixed(0)}`, icon: '💰', color: '#f59e0b', sub: 'awaiting approval' },
+                ].map(s => (
+                  <div
+                    key={s.label}
+                    style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.5rem', transition: 'border-color 0.2s, transform 0.2s', cursor: 'default' }}
+                    onMouseEnter={e => { (e.currentTarget).style.borderColor = `${s.color}33`; (e.currentTarget).style.transform = 'translateY(-1px)' }}
+                    onMouseLeave={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.06)'; (e.currentTarget).style.transform = 'none' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</span>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>{s.icon}</div>
+                    </div>
+                    <div style={{ fontSize: '2.25rem', fontWeight: '900', color: s.color, lineHeight: 1, marginBottom: '0.4rem' }}>{s.value}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#444' }}>{s.sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Who's working now */}
+              {employees && employees.length > 0 && (
+                <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', marginBottom: '2rem', overflow: 'hidden' }}>
+                  <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: '800', fontSize: '1rem' }}>Who's Working Now</div>
+                      <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>Live employee status</div>
+                    </div>
+                    <button
+                      onClick={() => { setShowInviteModal(true); setInviteResult(null) }}
+                      style={{ background: '#00d9ff', color: '#000', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.8rem' }}
+                    >
+                      + Invite
+                    </button>
+                  </div>
+                  <div style={{ padding: '1rem 1.5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                    {employees.map((emp: any) => {
+                      const active = activeSessions.find((e: any) => e.employee_id === emp.id || e.employees?.id === emp.id)
+                      const isClockedIn = !!active
+                      return (
+                        <div key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', padding: '0.875rem', background: isClockedIn ? 'rgba(34,197,94,0.05)' : 'rgba(255,255,255,0.02)', borderRadius: '10px', border: `1px solid ${isClockedIn ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.04)'}`, transition: 'all 0.2s' }}>
+                          {/* Avatar */}
+                          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: `linear-gradient(135deg, ${isClockedIn ? '#22c55e' : '#333'}, ${isClockedIn ? '#16a34a' : '#222'})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: '800', color: isClockedIn ? '#fff' : '#555', flexShrink: 0, position: 'relative' } as React.CSSProperties}>
+                            {(emp.users?.full_name || emp.users?.email || 'U')[0].toUpperCase()}
+                            <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '12px', height: '12px', borderRadius: '50%', background: isClockedIn ? '#22c55e' : '#444', border: '2px solid #1a1a1a' } as React.CSSProperties} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: '700', fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>
+                              {emp.users?.full_name || emp.users?.email?.split('@')[0] || 'Employee'}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: isClockedIn ? '#22c55e' : '#555', fontWeight: '600' }}>
+                              {isClockedIn ? `⏱ ${formatTime(active.clock_in)}` : 'Off'}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#555', flexShrink: 0 }}>
+                            ${emp.hourly_rate?.toFixed(0)}/h
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent activity */}
+              <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', overflow: 'hidden' }}>
+                <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: '800', fontSize: '1rem' }}>Recent Activity</div>
+                    <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>Latest time entries</div>
+                  </div>
+                  <button onClick={() => setActiveTab('timeentries')} style={{ background: 'transparent', border: 'none', color: '#00d9ff', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '600', padding: '0.3rem 0.5rem' }}>View all →</button>
+                </div>
+                {!timeEntries?.length ? (
+                  <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>⏰</div>
+                    <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>No time entries yet</div>
+                    <div style={{ fontSize: '0.8rem' }}>Invite employees to get started</div>
+                  </div>
+                ) : (
+                  <div>
+                    {/* Header row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr', padding: '0.75rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      {['Employee', 'Date', 'Clock In', 'Clock Out', 'Hours', 'Status'].map(h => (
+                        <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
+                      ))}
+                    </div>
+                    {(timeEntries || []).slice(0, 8).map((entry: any, i: number) => (
+                      <div
+                        key={entry.id}
+                        style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: i < 7 ? '1px solid rgba(255,255,255,0.03)' : 'none', transition: 'background 0.15s' }}
+                        onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
+                        onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: '800', flexShrink: 0, border: '1px solid rgba(255,255,255,0.06)' }}>
+                            {empInitial(entry)}
+                          </div>
+                          <span style={{ fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{empName(entry)}</span>
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#666' }}>{formatDate(entry.clock_in)}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#aaa' }}>{formatTime(entry.clock_in)}</div>
+                        <div style={{ fontSize: '0.8rem', color: entry.clock_out ? '#aaa' : '#22c55e', fontWeight: entry.clock_out ? 'normal' : '600' }}>
+                          {entry.clock_out ? formatTime(entry.clock_out) : '● Live'}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#fff' }}>{entry.hours_worked?.toFixed(2) ?? '—'}</div>
+                        <div>{statusBadge(entry.approval_status)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── EMPLOYEES TAB ── */}
+          {activeTab === 'employees' && (
+            <div>
+              <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Employees</h1>
+                  <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>{employees?.length ?? 0} team members</p>
+                </div>
+                <button
+                  onClick={() => { setShowInviteModal(true); setInviteResult(null) }}
+                  style={{ background: '#00d9ff', color: '#000', border: 'none', padding: '0.625rem 1.25rem', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  <span>+</span> Invite Employee
                 </button>
               </div>
 
-              {employees?.length === 0 ? (
-                <div style={{ ...S.emptyState, padding: '3rem 2rem' }}>
-                  <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👥</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.5rem' }}>No employees yet</div>
-                  <div style={{ fontSize: '0.875rem', color: '#555', marginBottom: '1.5rem' }}>Invite your first employee to get started</div>
-                  <button onClick={() => setShowInviteModal(true)} style={S.inviteBtn}>
-                    + Send First Invite
-                  </button>
-                </div>
-              ) : (
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      <th style={S.th}>Name</th>
-                      <th style={S.th}>Email</th>
-                      <th style={S.th}>Hourly Rate</th>
-                      <th style={S.th}>Type</th>
-                      <th style={S.th}>Joined</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {employees.map((emp: any) => (
-                      <tr key={emp.id}>
-                        <td style={S.td}>{emp.users?.full_name || '—'}</td>
-                        <td style={S.td}>{emp.users?.email || '—'}</td>
-                        <td style={S.td}>${emp.hourly_rate?.toFixed(2) ?? '0.00'}/hr</td>
-                        <td style={S.td}>{statusBadge(emp.employee_type || 'w2')}</td>
-                        <td style={S.td}>{formatDate(emp.created_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── INVITE MODAL ── */}
-        {showInviteModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
-            onClick={(e) => { if (e.target === e.currentTarget) resetInviteModal() }}>
-            <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '480px' }}>
-
-              {!inviteResult ? (
-                <>
-                  <div style={{ marginBottom: '1.5rem' }}>
-                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: '800' }}>Invite an Employee</h3>
-                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#666' }}>
-                      They'll get an email with a link to create their account and join your team instantly.
-                    </p>
-                  </div>
-
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#999', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
-                      Email Address *
-                    </label>
-                    <input
-                      type="email"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSendInvite()}
-                      placeholder="employee@example.com"
-                      autoFocus
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.12)',
-                        borderRadius: '8px', padding: '0.75rem 1rem',
-                        color: '#fff', fontSize: '1rem', outline: 'none',
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#999', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
-                      Name (optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={inviteName}
-                      onChange={(e) => setInviteName(e.target.value)}
-                      placeholder="John Smith"
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.12)',
-                        borderRadius: '8px', padding: '0.75rem 1rem',
-                        color: '#fff', fontSize: '1rem', outline: 'none',
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button
-                      onClick={handleSendInvite}
-                      disabled={inviteSending || !inviteEmail}
-                      style={{
-                        flex: 1, padding: '0.875rem',
-                        background: (!inviteEmail || inviteSending) ? 'rgba(0,217,255,0.3)' : '#00d9ff',
-                        color: '#000', border: 'none', borderRadius: '8px',
-                        fontWeight: '700', fontSize: '0.95rem',
-                        cursor: (!inviteEmail || inviteSending) ? 'not-allowed' : 'pointer',
-                        transition: 'all 0.2s',
-                      }}
-                    >
-                      {inviteSending ? 'Sending...' : '✉️ Send Invite'}
-                    </button>
-                    <button
-                      onClick={resetInviteModal}
-                      style={{
-                        padding: '0.875rem 1.25rem',
-                        background: 'transparent',
-                        border: '1px solid rgba(255,255,255,0.12)',
-                        color: '#666', borderRadius: '8px',
-                        cursor: 'pointer', fontWeight: '600',
-                      }}
-                    >
-                      Cancel
+              <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', overflow: 'hidden' }}>
+                {!employees?.length ? (
+                  <div style={{ padding: '5rem 2rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👥</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>No employees yet</div>
+                    <div style={{ fontSize: '0.875rem', color: '#555', marginBottom: '1.5rem' }}>Invite your first team member to get started</div>
+                    <button onClick={() => setShowInviteModal(true)} style={{ background: '#00d9ff', color: '#000', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '0.875rem' }}>
+                      + Send First Invite
                     </button>
                   </div>
-                </>
-              ) : (
-                <>
-                  {/* Result screen */}
-                  <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>
-                      {inviteResult.emailSent ? '✉️' : '🔗'}
+                ) : (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      {['Employee', 'Email', 'Rate', 'Type', 'Since'].map(h => (
+                        <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
+                      ))}
                     </div>
-                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: '800', color: inviteResult.success ? '#22c55e' : '#ef4444' }}>
-                      {inviteResult.emailSent ? 'Invite Sent!' : 'Share This Link'}
-                    </h3>
-                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#999' }}>
-                      {inviteResult.message}
-                    </p>
-                  </div>
-
-                  {/* Always show the invite link */}
-                  {inviteResult.inviteUrl && (
-                    <div style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '1rem' }}>
-                      <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.5rem', fontWeight: '600' }}>INVITE LINK</div>
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <code style={{ fontSize: '0.75rem', color: '#aaa', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
-                          {inviteResult.inviteUrl}
-                        </code>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(inviteResult.inviteUrl).catch(() => {})
-                            setCopiedLink(true)
-                            setTimeout(() => setCopiedLink(false), 2000)
-                          }}
-                          style={S.btn('#000', copiedLink ? '#22c55e' : '#00d9ff')}
+                    {employees.map((emp: any, i: number) => {
+                      const isActive = activeSessions.some((e: any) => e.employee_id === emp.id || e.employees?.id === emp.id)
+                      return (
+                        <div
+                          key={emp.id}
+                          style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr', padding: '1rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: i < employees.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', transition: 'background 0.15s' }}
+                          onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
+                          onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
                         >
-                          {copiedLink ? '✓' : 'Copy'}
-                        </button>
-                      </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: `linear-gradient(135deg, ${isActive ? '#22c55e' : '#333'}, ${isActive ? '#16a34a' : '#222'})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: '800', color: isActive ? '#fff' : '#555', flexShrink: 0, position: 'relative' } as React.CSSProperties}>
+                              {(emp.users?.full_name || emp.users?.email || 'U')[0].toUpperCase()}
+                              <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', borderRadius: '50%', background: isActive ? '#22c55e' : '#555', border: '2px solid #1a1a1a' } as React.CSSProperties} />
+                            </div>
+                            <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>{emp.users?.full_name || '—'}</span>
+                          </div>
+                          <div style={{ fontSize: '0.8rem', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{emp.users?.email || '—'}</div>
+                          <div style={{ fontSize: '0.875rem', fontWeight: '700', color: '#00d9ff' }}>${emp.hourly_rate?.toFixed(2)}/hr</div>
+                          <div>{statusBadge(emp.employee_type || 'w2')}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#555' }}>{formatDate(emp.created_at)}</div>
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
+              </div>
+
+              {/* Share invite link */}
+              <div style={{ marginTop: '1.5rem', background: '#1a1a1a', border: '1px solid rgba(0,217,255,0.12)', borderRadius: '14px', padding: '1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  <div style={{ fontWeight: '700', fontSize: '0.875rem', marginBottom: '0.25rem' }}>🔗 Share Invite Link</div>
+                  <div style={{ fontSize: '0.8rem', color: '#555' }}>Anyone with this link can join your team directly.</div>
+                </div>
+                <button
+                  onClick={copyInviteLink}
+                  style={{ background: copiedLink ? 'rgba(34,197,94,0.15)' : 'rgba(0,217,255,0.1)', border: `1px solid ${copiedLink ? 'rgba(34,197,94,0.3)' : 'rgba(0,217,255,0.25)'}`, color: copiedLink ? '#22c55e' : '#00d9ff', padding: '0.625rem 1.25rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem', transition: 'all 0.2s', whiteSpace: 'nowrap' } as React.CSSProperties}
+                >
+                  {copiedLink ? '✓ Copied!' : '📋 Copy Link'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── TIME ENTRIES TAB ── */}
+          {activeTab === 'timeentries' && (
+            <div>
+              <div style={{ marginBottom: '2rem' }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Time Entries</h1>
+                <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>{timeEntries?.length ?? 0} total entries</p>
+              </div>
+
+              <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', overflow: 'hidden' }}>
+                {!timeEntries?.length ? (
+                  <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>No time entries yet</div>
+                ) : (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      {['Employee', 'Date', 'In', 'Out', 'Hours', 'Location', 'Status'].map(h => (
+                        <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
+                      ))}
                     </div>
-                  )}
-
-                  <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button
-                      onClick={() => { setInviteEmail(''); setInviteName(''); setInviteResult(null) }}
-                      style={{ flex: 1, padding: '0.75rem', background: '#00d9ff', color: '#000', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
-                    >
-                      Invite Another
-                    </button>
-                    <button
-                      onClick={resetInviteModal}
-                      style={{ padding: '0.75rem 1.25rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: '#666', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}
-                    >
-                      Done
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── TIME ENTRIES TAB ── */}
-        {activeTab === 'timeentries' && (
-          <div>
-            <div style={S.card}>
-              <div style={S.cardHeader}>
-                <div style={S.cardTitle}>All Time Entries ({timeEntries?.length ?? 0})</div>
-              </div>
-              {timeEntries?.length === 0 ? (
-                <div style={S.emptyState}>No time entries recorded yet</div>
-              ) : (
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      <th style={S.th}>Employee</th>
-                      <th style={S.th}>Date</th>
-                      <th style={S.th}>Clock In</th>
-                      <th style={S.th}>Clock Out</th>
-                      <th style={S.th}>Hours</th>
-                      <th style={S.th}>Location</th>
-                      <th style={S.th}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {timeEntries.map((entry: any) => (
-                      <tr key={entry.id}>
-                        <td style={S.td}>{empName(entry)}</td>
-                        <td style={S.td}>{formatDate(entry.clock_in)}</td>
-                        <td style={S.td}>{formatTime(entry.clock_in)}</td>
-                        <td style={S.td}>{entry.clock_out ? formatTime(entry.clock_out) : <span style={{ color: '#22c55e' }}>● Active</span>}</td>
-                        <td style={{ ...S.td, fontWeight: '600' }}>{entry.hours_worked?.toFixed(2) ?? '—'}</td>
-                        <td style={S.td}>
+                    {timeEntries.map((entry: any, i: number) => (
+                      <div
+                        key={entry.id}
+                        style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: i < timeEntries.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none', transition: 'background 0.15s' }}
+                        onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
+                        onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: '800', flexShrink: 0, border: '1px solid rgba(255,255,255,0.06)' }}>
+                            {empInitial(entry)}
+                          </div>
+                          <span style={{ fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{empName(entry)}</span>
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#666' }}>{formatDate(entry.clock_in)}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#aaa' }}>{formatTime(entry.clock_in)}</div>
+                        <div style={{ fontSize: '0.8rem', color: entry.clock_out ? '#aaa' : '#22c55e', fontWeight: entry.clock_out ? 'normal' : '600' }}>
+                          {entry.clock_out ? formatTime(entry.clock_out) : '● Live'}
+                        </div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: '700' }}>{entry.hours_worked?.toFixed(2) ?? '—'}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#555' }}>
                           {entry.latitude && entry.longitude
-                            ? <span style={{ fontSize: '0.75rem', color: '#666' }}>📍 {Number(entry.latitude).toFixed(3)}, {Number(entry.longitude).toFixed(3)}</span>
-                            : <span style={{ color: '#444' }}>—</span>}
-                        </td>
-                        <td style={S.td}>{statusBadge(entry.approval_status)}</td>
-                      </tr>
+                            ? `📍 ${Number(entry.latitude).toFixed(3)}, ${Number(entry.longitude).toFixed(3)}`
+                            : '—'}
+                        </div>
+                        <div>{statusBadge(entry.approval_status)}</div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── PAYROLL TAB ── */}
-        {activeTab === 'payroll' && (
-          <div>
-            <div style={S.card}>
-              <div style={S.cardHeader}>
-                <div style={S.cardTitle}>Payroll Records ({payroll?.length ?? 0})</div>
+                  </>
+                )}
               </div>
-              {payroll?.length === 0 ? (
-                <div style={S.emptyState}>No payroll records yet</div>
-              ) : (
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      <th style={S.th}>Employee</th>
-                      <th style={S.th}>Week Ending</th>
-                      <th style={S.th}>Hours</th>
-                      <th style={S.th}>Gross</th>
-                      <th style={S.th}>Tax Reserved 🐷</th>
-                      <th style={S.th}>Net Pay</th>
-                      <th style={S.th}>Status</th>
-                      <th style={S.th}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payroll.map((pr: any) => {
+            </div>
+          )}
+
+          {/* ── PAYROLL TAB ── */}
+          {activeTab === 'payroll' && (
+            <div>
+              <div style={{ marginBottom: '2rem' }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Payroll</h1>
+                <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>{payroll?.length ?? 0} records · {pendingPayrollCount} pending approval</p>
+              </div>
+
+              {pendingPayrollCount > 0 && (
+                <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '12px', padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#f59e0b' }}>{pendingPayrollCount} payroll {pendingPayrollCount === 1 ? 'record' : 'records'} need your approval</div>
+                    <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.15rem' }}>Review and approve below to mark employees as paid.</div>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', overflow: 'hidden' }}>
+                {!payroll?.length ? (
+                  <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>No payroll records yet</div>
+                ) : (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr 1.5fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      {['Employee', 'Week', 'Hours', 'Gross', 'Tax 🐷', 'Net Pay', 'Status', 'Action'].map(h => (
+                        <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
+                      ))}
+                    </div>
+                    {payroll.map((pr: any, i: number) => {
                       const gross = pr.total_amount || 0
                       const taxWithheld = pr.tax_withheld || 0
                       const net = pr.net_amount ?? gross
                       return (
-                      <tr key={pr.id}>
-                        <td style={S.td}>{pr.employees?.users?.full_name || pr.employees?.users?.email || '—'}</td>
-                        <td style={S.td}>{pr.week_ending}</td>
-                        <td style={S.td}>{pr.total_hours}h</td>
-                        <td style={S.td}>${gross.toFixed(2)}</td>
-                        <td style={{ ...S.td, color: taxWithheld > 0 ? '#f59e0b' : '#444' }}>
-                          {taxWithheld > 0 ? `$${taxWithheld.toFixed(2)}` : '—'}
-                        </td>
-                        <td style={{ ...S.td, fontWeight: '700', color: '#22c55e' }}>${net.toFixed(2)}</td>
-                        <td style={S.td}>{statusBadge(pr.status)}</td>
-                        <td style={S.td}>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <div
+                          key={pr.id}
+                          style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr 1.5fr', padding: '0.875rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: i < payroll.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none', transition: 'background 0.15s' }}
+                          onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
+                          onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
+                        >
+                          <div style={{ fontSize: '0.875rem', fontWeight: '600' }}>{pr.employees?.users?.full_name || pr.employees?.users?.email?.split('@')[0] || '—'}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#666' }}>{pr.week_ending}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#aaa' }}>{pr.total_hours}h</div>
+                          <div style={{ fontSize: '0.85rem', color: '#aaa' }}>${gross.toFixed(2)}</div>
+                          <div style={{ fontSize: '0.85rem', color: taxWithheld > 0 ? '#f59e0b' : '#444' }}>
+                            {taxWithheld > 0 ? `$${taxWithheld.toFixed(2)}` : '—'}
+                          </div>
+                          <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#22c55e' }}>${net.toFixed(2)}</div>
+                          <div>{statusBadge(pr.status)}</div>
+                          <div style={{ display: 'flex', gap: '0.4rem' }}>
                             {pr.status === 'pending' && (
                               <button
                                 onClick={() => handlePayrollAction(pr.id, 'approved')}
                                 disabled={payrollUpdating === pr.id}
-                                style={S.btn('#000', '#22c55e')}
+                                style={{ padding: '0.375rem 0.75rem', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', borderRadius: '7px', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer', transition: 'all 0.15s', opacity: payrollUpdating === pr.id ? 0.5 : 1 }}
+                                onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(34,197,94,0.25)' }}
+                                onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(34,197,94,0.15)' }}
                               >
-                                Approve
+                                ✓ Approve
                               </button>
                             )}
                             {pr.status === 'approved' && (
                               <button
                                 onClick={() => handlePayrollAction(pr.id, 'paid')}
                                 disabled={payrollUpdating === pr.id}
-                                style={S.btn('#000', '#00d9ff')}
+                                style={{ padding: '0.375rem 0.75rem', background: 'rgba(0,217,255,0.12)', border: '1px solid rgba(0,217,255,0.3)', color: '#00d9ff', borderRadius: '7px', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer', transition: 'all 0.15s', opacity: payrollUpdating === pr.id ? 0.5 : 1 }}
+                                onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.22)' }}
+                                onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.12)' }}
                               >
-                                Mark Paid
+                                💸 Mark Paid
                               </button>
                             )}
                             {pr.status === 'paid' && (
-                              <span style={{ color: '#22c55e', fontSize: '0.8rem' }}>✓ Paid {pr.paid_date}</span>
+                              <span style={{ fontSize: '0.78rem', color: '#22c55e' }}>✓ Paid</span>
                             )}
                           </div>
-                        </td>
-                      </tr>
+                        </div>
                       )
                     })}
-                  </tbody>
-                </table>
-              )}
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </main>
       </div>
+
+      {/* ── INVITE MODAL ── */}
+      {showInviteModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(4px)' } as React.CSSProperties}
+          onClick={(e) => { if (e.target === e.currentTarget) resetInviteModal() }}
+        >
+          <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px', padding: '2.5rem', width: '100%', maxWidth: '460px', boxShadow: '0 40px 80px rgba(0,0,0,0.6)' }}>
+            {!inviteResult ? (
+              <>
+                <div style={{ marginBottom: '2rem' }}>
+                  <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.4rem', fontWeight: '900', letterSpacing: '-0.02em' }}>Invite an Employee</h3>
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#666', lineHeight: 1.6 }}>
+                    They'll get an email with a magic link to create their account and join your team.
+                  </p>
+                </div>
+
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendInvite()}
+                    placeholder="employee@example.com"
+                    autoFocus
+                    style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', padding: '0.875rem 1rem', color: '#fff', fontSize: '1rem', outline: 'none', transition: 'border-color 0.2s' } as React.CSSProperties}
+                    onFocus={e => { e.target.style.borderColor = 'rgba(0,217,255,0.4)' }}
+                    onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.12)' }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '2rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
+                    Name (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={inviteName}
+                    onChange={(e) => setInviteName(e.target.value)}
+                    placeholder="John Smith"
+                    style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', padding: '0.875rem 1rem', color: '#fff', fontSize: '1rem', outline: 'none', transition: 'border-color 0.2s' } as React.CSSProperties}
+                    onFocus={e => { e.target.style.borderColor = 'rgba(0,217,255,0.4)' }}
+                    onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.12)' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button
+                    onClick={handleSendInvite}
+                    disabled={inviteSending || !inviteEmail}
+                    style={{ flex: 1, padding: '0.9rem', background: (!inviteEmail || inviteSending) ? 'rgba(0,217,255,0.3)' : '#00d9ff', color: '#000', border: 'none', borderRadius: '10px', fontWeight: '800', fontSize: '0.95rem', cursor: (!inviteEmail || inviteSending) ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
+                  >
+                    {inviteSending ? 'Sending...' : '✉️ Send Invite'}
+                  </button>
+                  <button
+                    onClick={resetInviteModal}
+                    style={{ padding: '0.9rem 1.25rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#666', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s' }}
+                    onMouseEnter={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.2)'; (e.currentTarget).style.color = '#999' }}
+                    onMouseLeave={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget).style.color = '#666' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                  <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>{inviteResult.emailSent ? '✉️' : '🔗'}</div>
+                  <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.4rem', fontWeight: '900', color: inviteResult.success ? '#22c55e' : '#ef4444' }}>
+                    {inviteResult.emailSent ? 'Invite Sent!' : 'Share This Link'}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#666', lineHeight: 1.6 }}>{inviteResult.message}</p>
+                </div>
+
+                {inviteResult.inviteUrl && (
+                  <div style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '1rem' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#555', marginBottom: '0.5rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Invite Link</div>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <code style={{ fontSize: '0.75rem', color: '#888', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>
+                        {inviteResult.inviteUrl}
+                      </code>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(inviteResult.inviteUrl).catch(() => {})
+                          setCopiedLink(true)
+                          setTimeout(() => setCopiedLink(false), 2000)
+                        }}
+                        style={{ padding: '0.375rem 0.75rem', background: copiedLink ? 'rgba(34,197,94,0.15)' : 'rgba(0,217,255,0.12)', border: `1px solid ${copiedLink ? 'rgba(34,197,94,0.3)' : 'rgba(0,217,255,0.25)'}`, color: copiedLink ? '#22c55e' : '#00d9ff', borderRadius: '7px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', whiteSpace: 'nowrap', transition: 'all 0.2s' } as React.CSSProperties}
+                      >
+                        {copiedLink ? '✓ Copied' : '📋 Copy'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button
+                    onClick={() => { setInviteEmail(''); setInviteName(''); setInviteResult(null) }}
+                    style={{ flex: 1, padding: '0.875rem', background: '#00d9ff', color: '#000', border: 'none', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', fontSize: '0.9rem' }}
+                  >
+                    Invite Another
+                  </button>
+                  <button
+                    onClick={resetInviteModal}
+                    style={{ padding: '0.875rem 1.25rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#666', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}
+                  >
+                    Done
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
