@@ -1,8 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
+
+interface ShiftSummary {
+  hours: number
+  earned: number
+  note: string
+  clockOutTime: string
+}
 
 export default function EmployeeDashboard() {
   const router = useRouter()
@@ -22,6 +29,18 @@ export default function EmployeeDashboard() {
   const [taxSaved, setTaxSaved] = useState(false)
   const [taxMigrationNeeded, setTaxMigrationNeeded] = useState(false)
   const [clockSuccess, setClockSuccess] = useState<'in' | 'out' | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  // Feature 2: Clock-out notes & shift summary
+  const [clockOutNote, setClockOutNote] = useState('')
+  const [shiftSummary, setShiftSummary] = useState<ShiftSummary | null>(null)
 
   const getSession = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -71,16 +90,40 @@ export default function EmployeeDashboard() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [data?.activeEntry])
 
+  // Feature 1: Today's completed seconds (from finished entries today)
+  const todayCompletedSeconds = useMemo(() => {
+    const entries: any[] = data?.timeEntries ?? []
+    const today = new Date().toDateString()
+    return entries
+      .filter((e: any) => e.clock_out && new Date(e.clock_in).toDateString() === today)
+      .reduce((sum: number, e: any) => sum + ((e.hours_worked ?? 0) * 3600), 0)
+  }, [data?.timeEntries])
+
+  // Feature 5: Weekly bar chart base hours (completed entries only, no active session)
+  const weeklyDayHoursBase = useMemo(() => {
+    const days: number[] = [0, 0, 0, 0, 0, 0, 0] // Mon=0 ... Sun=6
+    const entries: any[] = data?.timeEntries ?? []
+    const now = new Date()
+    const mondayOffset = (now.getDay() + 6) % 7
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - mondayOffset)
+    monday.setHours(0, 0, 0, 0)
+    entries.forEach((e: any) => {
+      if (!e.clock_out) return
+      const d = new Date(e.clock_in)
+      if (d >= monday) {
+        const idx = (d.getDay() + 6) % 7
+        days[idx] += (e.hours_worked ?? 0)
+      }
+    })
+    return days
+  }, [data?.timeEntries])
+
   const formatElapsed = (secs: number) => {
     const h = Math.floor(secs / 3600)
     const m = Math.floor((secs % 3600) / 60)
     const s = secs % 60
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-  }
-
-  const estimatedEarnings = (secs: number) => {
-    const rate = data?.stats?.hourlyRate ?? 0
-    return ((secs / 3600) * rate).toFixed(2)
   }
 
   const getLocation = (): Promise<{ lat: number; lng: number } | null> => {
@@ -98,6 +141,7 @@ export default function EmployeeDashboard() {
     setClockLoading(true)
     setError('')
     setWarning('')
+    setShiftSummary(null)
 
     const loc = await getLocation()
     if (!loc) setWarning('Location unavailable — clocking in without GPS')
@@ -116,7 +160,7 @@ export default function EmployeeDashboard() {
       setError(json.error)
     } else {
       setClockSuccess('in')
-      setTimeout(() => setClockSuccess(null), 3000)
+      setTimeout(() => setClockSuccess(null), 4000)
       await fetchData()
     }
     setClockLoading(false)
@@ -132,15 +176,25 @@ export default function EmployeeDashboard() {
     const res = await fetch('/api/employee/clock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ action: 'clock_out', entryId: data?.activeEntry?.id }),
+      body: JSON.stringify({ action: 'clock_out', entryId: data?.activeEntry?.id, notes: clockOutNote }),
     })
 
     const json = await res.json()
     if (json.error) {
       setError(json.error)
     } else {
+      // Build shift summary from returned entry
+      const hoursWorked = json.entry?.hours_worked ?? 0
+      const rate = data?.stats?.hourlyRate ?? 0
+      setShiftSummary({
+        hours: hoursWorked,
+        earned: hoursWorked * rate,
+        note: clockOutNote,
+        clockOutTime: json.entry?.clock_out ?? new Date().toISOString(),
+      })
+      setClockOutNote('')
       setClockSuccess('out')
-      setTimeout(() => setClockSuccess(null), 3000)
+      setTimeout(() => setClockSuccess(null), 4000)
       await fetchData()
     }
     setClockLoading(false)
@@ -187,7 +241,21 @@ export default function EmployeeDashboard() {
 
   const formatDate = (ts: string) => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   const formatTime = (ts: string) => new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-  const displayName = user?.full_name || user?.email?.split('@')[0] || 'there'
+
+  // Feature 1: Live earnings ticker calculations
+  const hourlyRate = stats?.hourlyRate ?? 0
+  const todayEarningsLive = ((todayCompletedSeconds + elapsed) / 3600 * hourlyRate).toFixed(2)
+  const weeklyHoursCompleted = stats?.weeklyHours ?? 0
+  const weeklyEarningsLive = ((weeklyHoursCompleted + elapsed / 3600) * hourlyRate).toFixed(2)
+
+  // Feature 5: Weekly chart with live session injected into today's bar
+  const todayDayIdx = (new Date().getDay() + 6) % 7
+  const weeklyDayHours = weeklyDayHoursBase.map((h, i) =>
+    i === todayDayIdx && isClockedIn ? h + elapsed / 3600 : h
+  )
+  const maxDayHours = Math.max(...weeklyDayHours, 1)
+  const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
   const statusBadge = (s: string) => {
     const map: Record<string, [string, string]> = {
@@ -206,7 +274,7 @@ export default function EmployeeDashboard() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0f0f0f', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#0f0f0f', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', overflowX: 'hidden' }}>
 
       {/* ── HEADER ── */}
       <header style={{ background: '#0c0c0c', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0 1.5rem', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 } as React.CSSProperties}>
@@ -230,7 +298,7 @@ export default function EmployeeDashboard() {
           </div>
           <button
             onClick={handleLogout}
-            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#555', padding: '0.35rem 0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.78rem', transition: 'all 0.2s' }}
+            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#555', padding: '0.35rem 0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.78rem' }}
             onMouseEnter={e => { (e.currentTarget).style.borderColor = 'rgba(239,68,68,0.4)'; (e.currentTarget).style.color = '#ef4444' }}
             onMouseLeave={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget).style.color = '#555' }}
           >
@@ -252,9 +320,15 @@ export default function EmployeeDashboard() {
             ⚡ {warning}
           </div>
         )}
-        {clockSuccess && (
-          <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', color: '#22c55e', padding: '0.875rem 1.25rem', borderRadius: '10px', marginBottom: '1.25rem', fontSize: '0.875rem', fontWeight: '600' }}>
-            {clockSuccess === 'in' ? '✓ Clocked in! Time is running.' : '✓ Clocked out! Entry saved.'}
+
+        {/* Clock-in success banner */}
+        {clockSuccess === 'in' && (
+          <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.35)', color: '#22c55e', padding: '1rem 1.5rem', borderRadius: '12px', marginBottom: '1.25rem', fontSize: '0.9rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.25rem' }}>✅</span>
+            <div>
+              <div>Clocked in at {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} — timer is running!</div>
+              <div style={{ fontSize: '0.78rem', color: '#22c55e88', marginTop: '0.2rem', fontWeight: '500' }}>GPS location captured · Shift has started</div>
+            </div>
           </div>
         )}
 
@@ -290,25 +364,55 @@ export default function EmployeeDashboard() {
         {/* ── CLOCK TAB ── */}
         {activeTab === 'clock' && (
           <div>
+            {/* ── SHIFT SUMMARY (after clock-out) ── */}
+            {shiftSummary && !isClockedIn && (
+              <div style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.08), rgba(0,217,255,0.05))', border: '1px solid rgba(34,197,94,0.25)', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem', position: 'relative', overflow: 'hidden' } as React.CSSProperties}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #22c55e, #00d9ff)' } as React.CSSProperties} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.25rem' }}>Shift Complete</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#fff' }}>Great work! 🎉</div>
+                  </div>
+                  <button onClick={() => setShiftSummary(null)} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: '1rem', padding: '0.25rem' }}>✕</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: shiftSummary.note ? '1rem' : '0' }}>
+                  <div style={{ background: 'rgba(34,197,94,0.08)', borderRadius: '10px', padding: '1rem', border: '1px solid rgba(34,197,94,0.15)' }}>
+                    <div style={{ fontSize: '0.7rem', color: '#22c55e88', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Hours Worked</div>
+                    <div style={{ fontSize: '1.75rem', fontWeight: '900', color: '#22c55e' }}>{shiftSummary.hours.toFixed(2)}h</div>
+                  </div>
+                  <div style={{ background: 'rgba(0,217,255,0.08)', borderRadius: '10px', padding: '1rem', border: '1px solid rgba(0,217,255,0.15)' }}>
+                    <div style={{ fontSize: '0.7rem', color: '#00d9ff88', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Shift Earnings</div>
+                    <div style={{ fontSize: '1.75rem', fontWeight: '900', color: '#00d9ff' }}>${shiftSummary.earned.toFixed(2)}</div>
+                  </div>
+                </div>
+                {shiftSummary.note && (
+                  <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '0.75rem 1rem', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '700', marginBottom: '0.35rem' }}>SHIFT NOTE</div>
+                    <div style={{ fontSize: '0.875rem', color: '#aaa', fontStyle: 'italic' }}>"{shiftSummary.note}"</div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Main clock card */}
             <div style={{
               background: '#1a1a1a',
               borderRadius: '20px',
-              padding: '3rem 2rem',
+              padding: '2.5rem 2rem',
               textAlign: 'center',
               marginBottom: '1.5rem',
               border: `1px solid ${isClockedIn ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.06)'}`,
               position: 'relative',
               overflow: 'hidden',
             } as React.CSSProperties}>
-              {/* Background gradient */}
+              {/* Ambient glow */}
               {isClockedIn && (
                 <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at top, rgba(34,197,94,0.06) 0%, transparent 60%)', pointerEvents: 'none' } as React.CSSProperties} />
               )}
 
               <div style={{ position: 'relative', zIndex: 1 } as React.CSSProperties}>
-                {/* Status indicator */}
-                <div style={{ marginBottom: '1.5rem' }}>
+                {/* Status pill */}
+                <div style={{ marginBottom: '1.25rem' }}>
                   <div style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -325,34 +429,79 @@ export default function EmployeeDashboard() {
                   </div>
                 </div>
 
-                {/* Greeting / timer */}
                 {isClockedIn ? (
                   <div>
-                    <div style={{ fontFamily: '"SF Mono", "Fira Code", monospace', fontSize: 'clamp(3rem, 10vw, 5rem)', fontWeight: '900', color: '#22c55e', letterSpacing: '0.02em', lineHeight: 1, marginBottom: '0.5rem' }}>
+                    {/* Live timer */}
+                    <div style={{ fontFamily: '"SF Mono", "Fira Code", monospace', fontSize: 'clamp(2.75rem, 10vw, 4.5rem)', fontWeight: '900', color: '#22c55e', letterSpacing: '0.02em', lineHeight: 1, marginBottom: '0.4rem' }}>
                       {formatElapsed(elapsed)}
                     </div>
-                    <div style={{ fontSize: '0.875rem', color: '#555', marginBottom: '0.5rem' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#555', marginBottom: '1.25rem' }}>
                       Clocked in at {formatTime(activeEntry.clock_in)}
                     </div>
-                    {stats?.hourlyRate > 0 && (
-                      <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#00d9ff', marginBottom: '0.5rem' }}>
-                        +${estimatedEarnings(elapsed)} earned so far
+
+                    {/* Feature 1: Live Earnings Ticker */}
+                    {hourlyRate > 0 && (
+                      <div style={{ marginBottom: '1.5rem', padding: '1.25rem', background: 'rgba(0,217,255,0.06)', border: '1px solid rgba(0,217,255,0.15)', borderRadius: '14px' }}>
+                        <div style={{ fontSize: '0.7rem', color: '#00d9ff66', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>
+                          💰 Earned Today
+                        </div>
+                        <div style={{ fontFamily: '"SF Mono", "Fira Code", monospace', fontSize: '2.25rem', fontWeight: '900', color: '#00d9ff', lineHeight: 1, marginBottom: '0.4rem', letterSpacing: '0.02em' }}>
+                          ${todayEarningsLive}
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: '#00d9ff55', fontWeight: '500' }}>
+                          This week: ${weeklyEarningsLive} · ${hourlyRate.toFixed(2)}/hr
+                        </div>
                       </div>
                     )}
+
                     {activeEntry.latitude && (
-                      <div style={{ fontSize: '0.8rem', color: '#444', marginBottom: '1.5rem' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#444', marginBottom: '1.25rem' }}>
                         📍 {Number(activeEntry.latitude).toFixed(4)}, {Number(activeEntry.longitude).toFixed(4)}
                       </div>
                     )}
+
+                    {/* Feature 2: Clock-Out Note textarea */}
+                    <div style={{ marginBottom: '1.5rem', textAlign: 'left' }}>
+                      <label style={{ display: 'block', fontSize: '0.72rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.5rem' }}>
+                        Shift Note (optional)
+                      </label>
+                      <textarea
+                        value={clockOutNote}
+                        onChange={e => setClockOutNote(e.target.value)}
+                        placeholder="What did you work on? Any notes for your manager..."
+                        rows={2}
+                        style={{
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: '10px',
+                          padding: '0.75rem 1rem',
+                          color: '#ccc',
+                          fontSize: '0.875rem',
+                          outline: 'none',
+                          resize: 'none',
+                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                          transition: 'border-color 0.2s',
+                        } as React.CSSProperties}
+                        onFocus={e => { e.target.style.borderColor = 'rgba(255,255,255,0.2)' }}
+                        onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)' }}
+                      />
+                    </div>
                   </div>
                 ) : (
                   <div style={{ marginBottom: '1.5rem' }}>
                     <div style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
                       Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'} 👋
                     </div>
-                    <div style={{ fontSize: '1rem', color: '#555' }}>
+                    <div style={{ fontSize: '1rem', color: '#555', marginBottom: '1rem' }}>
                       {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                     </div>
+                    {hourlyRate > 0 && (
+                      <div style={{ fontSize: '0.875rem', color: '#444' }}>
+                        Today so far: <span style={{ color: '#00d9ff', fontWeight: '700' }}>${(todayCompletedSeconds / 3600 * hourlyRate).toFixed(2)}</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -361,15 +510,15 @@ export default function EmployeeDashboard() {
                   onClick={isClockedIn ? handleClockOut : handleClockIn}
                   disabled={clockLoading}
                   style={{
-                    width: '180px',
-                    height: '180px',
+                    width: '170px',
+                    height: '170px',
                     borderRadius: '50%',
                     border: `3px solid ${isClockedIn ? '#ef4444' : '#22c55e'}`,
                     background: isClockedIn
                       ? 'radial-gradient(circle, rgba(239,68,68,0.15) 0%, rgba(239,68,68,0.05) 100%)'
                       : 'radial-gradient(circle, rgba(34,197,94,0.15) 0%, rgba(34,197,94,0.05) 100%)',
                     color: isClockedIn ? '#ef4444' : '#22c55e',
-                    fontSize: '1.1rem',
+                    fontSize: '1rem',
                     fontWeight: '900',
                     cursor: clockLoading ? 'not-allowed' : 'pointer',
                     transition: 'all 0.2s',
@@ -402,25 +551,69 @@ export default function EmployeeDashboard() {
                       : '0 0 40px rgba(34,197,94,0.2), inset 0 0 30px rgba(34,197,94,0.05)'
                   }}
                 >
-                  <span style={{ fontSize: '2rem' }}>{clockLoading ? '⏳' : isClockedIn ? '⏹' : '▶'}</span>
+                  <span style={{ fontSize: '1.75rem' }}>{clockLoading ? '⏳' : isClockedIn ? '⏹' : '▶'}</span>
                   <span>{clockLoading ? '...' : isClockedIn ? 'CLOCK OUT' : 'CLOCK IN'}</span>
                 </button>
               </div>
             </div>
 
             {/* Quick stats row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
               {[
-                { label: 'This Week', value: `${stats?.weeklyHours ?? 0}h`, color: '#00d9ff', icon: '📊' },
-                { label: 'Hourly Rate', value: `$${(stats?.hourlyRate ?? 0).toFixed(2)}`, color: '#22c55e', icon: '💰' },
+                { label: 'This Week', value: `${(weeklyHoursCompleted + (isClockedIn ? elapsed / 3600 : 0)).toFixed(1)}h`, color: '#00d9ff', icon: '📊' },
+                { label: 'Hourly Rate', value: `$${hourlyRate.toFixed(2)}`, color: '#22c55e', icon: '💰' },
                 { label: 'Total Earned', value: `$${(stats?.totalEarned ?? 0).toFixed(0)}`, color: '#f59e0b', icon: '🏦' },
               ].map(s => (
                 <div key={s.label} style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.25rem', textAlign: 'center' }}>
                   <div style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>{s.icon}</div>
                   <div style={{ fontSize: '1.5rem', fontWeight: '900', color: s.color, lineHeight: 1, marginBottom: '0.25rem' }}>{s.value}</div>
-                  <div style={{ fontSize: '0.72rem', color: '#444', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</div>
+                  <div style={{ fontSize: '0.68rem', color: '#444', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</div>
                 </div>
               ))}
+            </div>
+
+            {/* Feature 5: Weekly Hours Bar Chart */}
+            <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.25rem 1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: '800' }}>This Week's Hours</div>
+                  <div style={{ fontSize: '0.72rem', color: '#555', marginTop: '0.2rem' }}>
+                    Mon – Sun · {weeklyDayHours.reduce((a, b) => a + b, 0).toFixed(1)}h total
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#444', textAlign: 'right' }}>
+                  <span style={{ color: '#00d9ff', fontWeight: '700' }}>■</span> today
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem', height: '80px' }}>
+                {weeklyDayHours.map((h, i) => {
+                  const isToday = i === todayDayIdx
+                  const pct = maxDayHours > 0 ? (h / maxDayHours) : 0
+                  const barH = Math.max(pct * 64, h > 0 ? 4 : 0)
+                  return (
+                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
+                      <div style={{ fontSize: '0.65rem', color: isToday ? '#00d9ff' : '#555', fontWeight: '700', minHeight: '16px', textAlign: 'center', lineHeight: 1 }}>
+                        {h > 0 ? `${h.toFixed(1)}` : ''}
+                      </div>
+                      <div style={{ width: '100%', height: '64px', display: 'flex', alignItems: 'flex-end' }}>
+                        <div style={{
+                          width: '100%',
+                          height: `${barH}px`,
+                          background: isToday
+                            ? 'linear-gradient(180deg, #00d9ff, #0099cc)'
+                            : h > 0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                          borderRadius: '4px 4px 2px 2px',
+                          transition: 'height 0.5s ease',
+                          boxShadow: isToday && h > 0 ? '0 0 12px rgba(0,217,255,0.3)' : 'none',
+                        } as React.CSSProperties} />
+                      </div>
+                      <div style={{ fontSize: '0.68rem', fontWeight: isToday ? '800' : '500', color: isToday ? '#00d9ff' : '#444' }}>
+                        {dayLabels[i]}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -448,28 +641,33 @@ export default function EmployeeDashboard() {
                   return (
                     <div
                       key={entry.id}
-                      style={{ background: '#1a1a1a', border: `1px solid ${isActive ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.06)'}`, borderRadius: '12px', padding: '1rem 1.25rem', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.5rem', alignItems: 'center', transition: 'border-color 0.2s' }}
-                      onMouseEnter={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.1)' }}
-                      onMouseLeave={e => { (e.currentTarget).style.borderColor = isActive ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.06)' }}
+                      style={{ background: '#1a1a1a', border: `1px solid ${isActive ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.06)'}`, borderRadius: '12px', padding: '1rem 1.25rem' }}
                     >
-                      <div>
-                        <div style={{ fontSize: '0.68rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Date</div>
-                        <div style={{ fontWeight: '600', fontSize: '0.875rem' }}>{formatDate(entry.clock_in)}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.68rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Clock In</div>
-                        <div style={{ fontSize: '0.875rem', color: '#aaa' }}>{formatTime(entry.clock_in)}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.68rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Clock Out</div>
-                        <div style={{ fontSize: '0.875rem', color: isActive ? '#22c55e' : '#aaa', fontWeight: isActive ? '700' : 'normal' }}>
-                          {isActive ? '● Active' : formatTime(entry.clock_out)}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.5rem', alignItems: 'center', marginBottom: entry.notes ? '0.75rem' : 0 }}>
+                        <div>
+                          <div style={{ fontSize: '0.65rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Date</div>
+                          <div style={{ fontWeight: '600', fontSize: '0.875rem' }}>{formatDate(entry.clock_in)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.65rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Clock In</div>
+                          <div style={{ fontSize: '0.875rem', color: '#aaa' }}>{formatTime(entry.clock_in)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.65rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Clock Out</div>
+                          <div style={{ fontSize: '0.875rem', color: isActive ? '#22c55e' : '#aaa', fontWeight: isActive ? '700' : 'normal' }}>
+                            {isActive ? '● Active' : formatTime(entry.clock_out)}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.65rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Hours</div>
+                          <div style={{ fontSize: '0.95rem', fontWeight: '800', color: '#fff' }}>{entry.hours_worked?.toFixed(2) ?? '—'}</div>
                         </div>
                       </div>
-                      <div>
-                        <div style={{ fontSize: '0.68rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Hours</div>
-                        <div style={{ fontSize: '0.95rem', fontWeight: '800', color: '#fff' }}>{entry.hours_worked?.toFixed(2) ?? '—'}</div>
-                      </div>
+                      {entry.notes && (
+                        <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '7px', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#666', borderLeft: '2px solid rgba(255,255,255,0.1)', fontStyle: 'italic' }}>
+                          "{entry.notes}"
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -574,9 +772,7 @@ export default function EmployeeDashboard() {
                     return (
                       <div
                         key={pr.id}
-                        style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.8fr 1fr 1fr 1fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: i < payroll.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none', fontSize: '0.875rem', transition: 'background 0.15s' }}
-                        onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
-                        onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
+                        style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.8fr 1fr 1fr 1fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: i < payroll.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none', fontSize: '0.875rem' }}
                       >
                         <div style={{ color: '#888', fontSize: '0.8rem' }}>{pr.week_ending}</div>
                         <div style={{ color: '#aaa' }}>{pr.total_hours}h</div>

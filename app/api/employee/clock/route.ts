@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Invalid token' }, { status: 401 })
     }
 
-    const { action, lat, lng, entryId } = await request.json()
+    const { action, lat, lng, entryId, notes } = await request.json()
     const supabase = createServiceClient()
 
     // Get employee record
@@ -80,12 +80,46 @@ export async function POST(request: Request) {
       const clockInTime = new Date(existingEntry.clock_in)
       const hoursWorked = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60)
 
+      const baseUpdate: Record<string, any> = {
+        clock_out: clockOutTime.toISOString(),
+        hours_worked: Math.round(hoursWorked * 100) / 100,
+      }
+
+      // Try with notes first (gracefully fall back if column doesn't exist)
+      if (notes && notes.trim()) {
+        const { data: updated, error: updateErr } = await supabase
+          .from('time_entries')
+          .update({ ...baseUpdate, notes: notes.trim() })
+          .eq('id', entryId)
+          .select()
+          .single()
+
+        // If notes column doesn't exist, retry without it
+        if (updateErr && (updateErr.code === '42703' || updateErr.message?.includes('notes') || updateErr.message?.includes('column'))) {
+          const { data: updated2, error: updateErr2 } = await supabase
+            .from('time_entries')
+            .update(baseUpdate)
+            .eq('id', entryId)
+            .select()
+            .single()
+
+          if (updateErr2) {
+            return Response.json({ error: updateErr2.message }, { status: 500 })
+          }
+          return Response.json({ success: true, entry: updated2, notesSkipped: true })
+        }
+
+        if (updateErr) {
+          return Response.json({ error: updateErr.message }, { status: 500 })
+        }
+
+        return Response.json({ success: true, entry: updated })
+      }
+
+      // No notes — standard update
       const { data: updated, error: updateErr } = await supabase
         .from('time_entries')
-        .update({
-          clock_out: clockOutTime.toISOString(),
-          hours_worked: Math.round(hoursWorked * 100) / 100,
-        })
+        .update(baseUpdate)
         .eq('id', entryId)
         .select()
         .single()
