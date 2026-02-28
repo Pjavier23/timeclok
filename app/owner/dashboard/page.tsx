@@ -37,6 +37,11 @@ export default function OwnerDashboard() {
   const [settingsMigrationNeeded, setSettingsMigrationNeeded] = useState(false)
 
   // Invite modal state
+  // Inline rate editing
+  const [editingRateId, setEditingRateId] = useState<string | null>(null)
+  const [editingRateValue, setEditingRateValue] = useState('')
+  const [rateSaving, setRateSaving] = useState(false)
+
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteName, setInviteName] = useState('')
@@ -77,6 +82,23 @@ export default function OwnerDashboard() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  const handleRateUpdate = async (empId: string) => {
+    const rate = parseFloat(editingRateValue)
+    if (isNaN(rate) || rate < 0) { setEditingRateId(null); return }
+    setRateSaving(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      await fetch(`/api/owner/employees/${empId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ hourly_rate: rate }),
+      })
+      await fetchData()
+    } catch (e) { /* silent */ }
+    setRateSaving(false)
+    setEditingRateId(null)
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -699,7 +721,33 @@ export default function OwnerDashboard() {
                               <div style={{ fontSize: '0.78rem', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{emp.users?.email || '—'}</div>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem', flexShrink: 0 } as React.CSSProperties}>
-                              <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#00d9ff' }}>${emp.hourly_rate?.toFixed(0)}/hr</div>
+                              {editingRateId === emp.id ? (
+                                <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                  <span style={{ fontSize: '0.85rem', color: '#00d9ff' }}>$</span>
+                                  <input
+                                    autoFocus
+                                    type="number"
+                                    min="0"
+                                    step="0.5"
+                                    value={editingRateValue}
+                                    onChange={e => setEditingRateValue(e.target.value)}
+                                    onBlur={() => handleRateUpdate(emp.id)}
+                                    onKeyDown={e => { if (e.key === 'Enter') handleRateUpdate(emp.id); if (e.key === 'Escape') setEditingRateId(null) }}
+                                    style={{ width: '56px', background: 'rgba(0,217,255,0.1)', border: '1px solid rgba(0,217,255,0.4)', borderRadius: '6px', color: '#00d9ff', padding: '0.2rem 0.4rem', fontSize: '0.85rem', fontWeight: '800', outline: 'none', textAlign: 'center' }}
+                                  />
+                                  <span style={{ fontSize: '0.75rem', color: '#00d9ff' }}>/hr</span>
+                                </div>
+                              ) : (
+                                <div
+                                  onClick={e => { e.stopPropagation(); setEditingRateId(emp.id); setEditingRateValue(emp.hourly_rate?.toString() || '0') }}
+                                  style={{ fontSize: '0.9rem', fontWeight: '800', color: '#00d9ff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0.5rem', borderRadius: '6px', border: '1px solid transparent', transition: 'border-color 0.15s' }}
+                                  onMouseEnter={e => { (e.currentTarget).style.borderColor = 'rgba(0,217,255,0.3)' }}
+                                  onMouseLeave={e => { (e.currentTarget).style.borderColor = 'transparent' }}
+                                  title="Tap to edit rate"
+                                >
+                                  ${emp.hourly_rate?.toFixed(0)}/hr <span style={{ fontSize: '0.65rem', color: '#555' }}>✎</span>
+                                </div>
+                              )}
                               <div style={{ fontSize: '0.7rem', color: '#555' }}>›</div>
                             </div>
                           </div>
@@ -731,10 +779,38 @@ export default function OwnerDashboard() {
                             </div>
                           </div>
                           <div style={{ fontSize: '0.8rem', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{emp.users?.email || '—'}</div>
-                          <div style={{ fontSize: '0.875rem', fontWeight: '700', color: '#00d9ff' }}>${emp.hourly_rate?.toFixed(2)}/hr</div>
+                          <div onClick={e => e.stopPropagation()}>
+                            {editingRateId === emp.id ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                <span style={{ fontSize: '0.85rem', color: '#00d9ff' }}>$</span>
+                                <input
+                                  autoFocus
+                                  type="number"
+                                  min="0"
+                                  step="0.5"
+                                  value={editingRateValue}
+                                  onChange={e => setEditingRateValue(e.target.value)}
+                                  onBlur={() => handleRateUpdate(emp.id)}
+                                  onKeyDown={e => { if (e.key === 'Enter') handleRateUpdate(emp.id); if (e.key === 'Escape') setEditingRateId(null) }}
+                                  style={{ width: '60px', background: 'rgba(0,217,255,0.1)', border: '1px solid rgba(0,217,255,0.4)', borderRadius: '6px', color: '#00d9ff', padding: '0.25rem 0.4rem', fontSize: '0.875rem', fontWeight: '700', outline: 'none', textAlign: 'center' }}
+                                />
+                                <span style={{ fontSize: '0.78rem', color: '#00d9ff' }}>/hr</span>
+                              </div>
+                            ) : (
+                              <div
+                                onClick={() => { setEditingRateId(emp.id); setEditingRateValue(emp.hourly_rate?.toString() || '0') }}
+                                style={{ fontSize: '0.875rem', fontWeight: '700', color: '#00d9ff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.45rem', borderRadius: '6px', border: '1px solid transparent', transition: 'border-color 0.15s' }}
+                                onMouseEnter={e => { (e.currentTarget).style.borderColor = 'rgba(0,217,255,0.3)' }}
+                                onMouseLeave={e => { (e.currentTarget).style.borderColor = 'transparent' }}
+                                title="Click to edit rate"
+                              >
+                                ${emp.hourly_rate?.toFixed(2)}/hr <span style={{ fontSize: '0.65rem', color: '#555' }}>✎</span>
+                              </div>
+                            )}
+                          </div>
                           <div>{statusBadge(emp.employee_type || 'w2')}</div>
                           <div style={{ fontSize: '0.8rem', color: '#555' }}>{formatDate(emp.created_at)}</div>
-                          <div style={{ fontSize: '0.8rem', color: '#444' }}>›</div>
+                          <div style={{ fontSize: '0.8rem', color: '#555' }}>›</div>
                         </div>
                       )
                     })}

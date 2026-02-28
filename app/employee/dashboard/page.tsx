@@ -367,7 +367,7 @@ export default function EmployeeDashboard() {
           {isClockedIn && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', padding: '0.25rem 0.6rem', borderRadius: '100px', flexShrink: 0 }}>
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', display: 'block', flexShrink: 0 }} />
-              <span style={{ fontSize: '0.72rem', color: '#22c55e', fontWeight: '700', fontFamily: 'monospace' }}>{formatElapsed(elapsed)}</span>
+              <span style={{ fontSize: '0.72rem', color: isOnBreak ? '#fbbf24' : '#22c55e', fontWeight: '700', fontFamily: 'monospace' }}>{isOnBreak ? '☕' : formatElapsed(workedElapsed)}</span>
             </div>
           )}
           <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: '800', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
@@ -388,7 +388,7 @@ export default function EmployeeDashboard() {
         </div>
       </header>
 
-      <div style={{ maxWidth: '700px', margin: '0 auto', padding: isMobile ? '1.25rem 1rem' : '2rem 1.5rem', width: '100%', boxSizing: 'border-box' }}>
+      <div style={{ maxWidth: '700px', margin: '0 auto', padding: isMobile ? '1.25rem 1rem' : '2rem 1.5rem', paddingBottom: isMobile ? 'calc(1.5rem + env(safe-area-inset-bottom, 16px))' : '2rem', width: '100%', boxSizing: 'border-box' } as React.CSSProperties}>
 
         {/* Alerts */}
         {error && (
@@ -825,7 +825,7 @@ export default function EmployeeDashboard() {
                 <div key={s.label} style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                     <span style={{ fontSize: '1.1rem' }}>{s.icon}</span>
-                    <span style={{ fontSize: '0.72rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</span>
+                    <span style={{ fontSize: '0.72rem', color: '#888', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</span>
                   </div>
                   <div style={{ fontSize: '1.75rem', fontWeight: '900', color: s.color }}>{s.value}</div>
                 </div>
