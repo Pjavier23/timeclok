@@ -584,7 +584,7 @@ export default function EmployeeDashboard() {
               {[
                 { label: 'This Week', value: `${(weeklyHoursCompleted + (isClockedIn ? elapsed / 3600 : 0)).toFixed(1)}h`, color: '#00d9ff', icon: '📊' },
                 { label: 'Hourly Rate', value: `$${hourlyRate.toFixed(2)}`, color: '#22c55e', icon: '💰' },
-                { label: 'Total Earned', value: `$${(stats?.totalEarned ?? 0).toFixed(0)}`, color: '#f59e0b', icon: '🏦' },
+                { label: 'Total Earned', value: `$${(stats?.totalGross ?? 0).toFixed(0)}`, color: '#f59e0b', icon: '🏦' },
               ].map(s => (
                 <div key={s.label} style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.25rem', textAlign: 'center' }}>
                   <div style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>{s.icon}</div>
