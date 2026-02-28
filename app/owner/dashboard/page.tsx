@@ -22,8 +22,10 @@ export default function OwnerDashboard() {
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteName, setInviteName] = useState('')
+  const [invitePhone, setInvitePhone] = useState('')
+  const [inviteMethod, setInviteMethod] = useState<'email' | 'sms'>('email')
   const [inviteSending, setInviteSending] = useState(false)
-  const [inviteResult, setInviteResult] = useState<{ success: boolean; emailSent: boolean; inviteUrl: string; message: string } | null>(null)
+  const [inviteResult, setInviteResult] = useState<{ success: boolean; emailSent?: boolean; smsSent?: boolean; inviteUrl: string; message: string } | null>(null)
 
   const fetchData = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -109,7 +111,12 @@ export default function OwnerDashboard() {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ email: inviteEmail, name: inviteName }),
+      body: JSON.stringify({
+        method: inviteMethod,
+        email: inviteMethod === 'email' ? inviteEmail : undefined,
+        phone: inviteMethod === 'sms' ? invitePhone : undefined,
+        name: inviteName,
+      }),
     })
 
     const json = await res.json()
@@ -125,6 +132,8 @@ export default function OwnerDashboard() {
     setShowInviteModal(false)
     setInviteEmail('')
     setInviteName('')
+    setInvitePhone('')
+    setInviteMethod('email')
     setInviteResult(null)
   }
 
@@ -633,22 +642,56 @@ export default function OwnerDashboard() {
                   </p>
                 </div>
 
-                <div style={{ marginBottom: '1.25rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
-                    Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendInvite()}
-                    placeholder="employee@example.com"
-                    autoFocus
-                    style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', padding: '0.875rem 1rem', color: '#fff', fontSize: '1rem', outline: 'none', transition: 'border-color 0.2s' } as React.CSSProperties}
-                    onFocus={e => { e.target.style.borderColor = 'rgba(0,217,255,0.4)' }}
-                    onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.12)' }}
-                  />
+                {/* Method toggle */}
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '4px' }}>
+                  {(['email', 'sms'] as const).map(m => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setInviteMethod(m)}
+                      style={{ flex: 1, padding: '0.6rem', background: inviteMethod === m ? '#00d9ff' : 'transparent', color: inviteMethod === m ? '#000' : '#666', border: 'none', borderRadius: '7px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.2s' }}
+                    >
+                      {m === 'email' ? '✉️ Email' : '📱 SMS'}
+                    </button>
+                  ))}
                 </div>
+
+                {inviteMethod === 'email' ? (
+                  <div style={{ marginBottom: '1.25rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendInvite()}
+                      placeholder="employee@example.com"
+                      autoFocus
+                      style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', padding: '0.875rem 1rem', color: '#fff', fontSize: '1rem', outline: 'none', transition: 'border-color 0.2s' } as React.CSSProperties}
+                      onFocus={e => { e.target.style.borderColor = 'rgba(0,217,255,0.4)' }}
+                      onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.12)' }}
+                    />
+                  </div>
+                ) : (
+                  <div style={{ marginBottom: '1.25rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
+                      Phone Number *
+                    </label>
+                    <input
+                      type="tel"
+                      value={invitePhone}
+                      onChange={(e) => setInvitePhone(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendInvite()}
+                      placeholder="+12025551234"
+                      autoFocus
+                      style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', padding: '0.875rem 1rem', color: '#fff', fontSize: '1rem', outline: 'none', transition: 'border-color 0.2s' } as React.CSSProperties}
+                      onFocus={e => { e.target.style.borderColor = 'rgba(0,217,255,0.4)' }}
+                      onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.12)' }}
+                    />
+                    <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.4rem' }}>Include country code (e.g. +1 for US)</div>
+                  </div>
+                )}
 
                 <div style={{ marginBottom: '2rem' }}>
                   <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
@@ -668,10 +711,10 @@ export default function OwnerDashboard() {
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                   <button
                     onClick={handleSendInvite}
-                    disabled={inviteSending || !inviteEmail}
-                    style={{ flex: 1, padding: '0.9rem', background: (!inviteEmail || inviteSending) ? 'rgba(0,217,255,0.3)' : '#00d9ff', color: '#000', border: 'none', borderRadius: '10px', fontWeight: '800', fontSize: '0.95rem', cursor: (!inviteEmail || inviteSending) ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
+                    disabled={inviteSending || (inviteMethod === 'email' ? !inviteEmail : !invitePhone)}
+                    style={{ flex: 1, padding: '0.9rem', background: (inviteSending || (inviteMethod === 'email' ? !inviteEmail : !invitePhone)) ? 'rgba(0,217,255,0.3)' : '#00d9ff', color: '#000', border: 'none', borderRadius: '10px', fontWeight: '800', fontSize: '0.95rem', cursor: (inviteSending || (inviteMethod === 'email' ? !inviteEmail : !invitePhone)) ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
                   >
-                    {inviteSending ? 'Sending...' : '✉️ Send Invite'}
+                    {inviteSending ? 'Sending...' : inviteMethod === 'email' ? '✉️ Send Invite' : '📱 Send SMS'}
                   </button>
                   <button
                     onClick={resetInviteModal}
@@ -686,9 +729,9 @@ export default function OwnerDashboard() {
             ) : (
               <>
                 <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                  <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>{inviteResult.emailSent ? '✉️' : '🔗'}</div>
+                  <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>{inviteResult.emailSent ? '✉️' : inviteResult.smsSent ? '📱' : '🔗'}</div>
                   <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.4rem', fontWeight: '900', color: inviteResult.success ? '#22c55e' : '#ef4444' }}>
-                    {inviteResult.emailSent ? 'Invite Sent!' : 'Share This Link'}
+                    {inviteResult.emailSent ? 'Email Sent!' : inviteResult.smsSent ? 'SMS Sent!' : 'Share This Link'}
                   </h3>
                   <p style={{ margin: 0, fontSize: '0.875rem', color: '#666', lineHeight: 1.6 }}>{inviteResult.message}</p>
                 </div>
@@ -716,7 +759,7 @@ export default function OwnerDashboard() {
 
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                   <button
-                    onClick={() => { setInviteEmail(''); setInviteName(''); setInviteResult(null) }}
+                    onClick={() => { setInviteEmail(''); setInviteName(''); setInvitePhone(''); setInviteResult(null) }}
                     style={{ flex: 1, padding: '0.875rem', background: '#00d9ff', color: '#000', border: 'none', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', fontSize: '0.9rem' }}
                   >
                     Invite Another

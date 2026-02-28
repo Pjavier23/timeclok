@@ -71,39 +71,39 @@ export default function EmployeesPage() {
     setSuccessMessage('')
 
     try {
-      // Create invite link
-      const inviteToken = Math.random().toString(36).substring(2, 15)
-      const inviteLink = `${window.location.origin}/join?token=${inviteToken}&email=${encodeURIComponent(formData.email)}`
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Not authenticated')
 
-      // Send invite
-      const sendRes = await fetch('/api/send-invite', {
+      const res = await fetch('/api/invite', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           method: sendMethod,
           email: sendMethod === 'email' ? formData.email : undefined,
-          phoneNumber: sendMethod === 'sms' ? formData.phoneNumber : undefined,
-          inviteLink,
-          companyName: user?.email?.split('@')[0] || 'Company',
+          phone: sendMethod === 'sms' ? formData.phoneNumber : undefined,
         }),
       })
 
-      if (!sendRes.ok) {
-        throw new Error('Failed to send invite')
+      const data = await res.json()
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Failed to send invite')
       }
 
-      setSuccessMessage(
+      setSuccessMessage(data.message || (
         sendMethod === 'email'
           ? `Invite sent to ${formData.email}`
-          : `Invite sent to ${formData.phoneNumber}`
-      )
+          : `Invite SMS sent to ${formData.phoneNumber}`
+      ))
 
-      // Reset form
       setFormData({ email: '', phoneNumber: '', hourlyRate: '25' })
       setTimeout(() => {
         setShowAddModal(false)
         setSuccessMessage('')
-      }, 2000)
+      }, 2500)
     } catch (err: any) {
       setError(err.message)
     } finally {
