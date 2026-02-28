@@ -467,6 +467,21 @@ export default function OwnerDashboard() {
           {/* ── OVERVIEW ── */}
           {activeTab === 'overview' && (
             <div>
+              {/* Upgrade nudge */}
+              {company?.subscription_status !== 'active' && (
+                <div
+                  onClick={() => router.push('/owner/billing')}
+                  style={{ background: 'rgba(0,217,255,0.04)', border: '1px solid rgba(0,217,255,0.15)', borderRadius: '12px', padding: '0.75rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.875rem', cursor: 'pointer', transition: 'background 0.15s' }}
+                  onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.07)' }}
+                  onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.04)' }}
+                >
+                  <span style={{ fontSize: '1rem', flexShrink: 0 }}>⚡</span>
+                  <span style={{ flex: 1, fontSize: '0.85rem', color: '#666' }}>
+                    <span style={{ color: '#00d9ff', fontWeight: '700' }}>Upgrade to Pro</span> — unlock payroll processing for $99/mo
+                  </span>
+                  <span style={{ color: '#00d9ff', fontSize: '0.8rem', fontWeight: '700', flexShrink: 0 }}>→</span>
+                </div>
+              )}
               <div style={{ marginBottom: '2rem' }}>
                 <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Dashboard</h1>
                 <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>
