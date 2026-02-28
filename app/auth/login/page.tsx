@@ -178,7 +178,12 @@ function LoginForm() {
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
-            <label style={styles.label}>Password</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <label style={{ ...styles.label, marginBottom: 0 }}>Password</label>
+              <a href={`/auth/forgot-password?email=${encodeURIComponent(email)}`} style={{ fontSize: '0.78rem', color: '#00d9ff', textDecoration: 'none', fontWeight: '600' }}>
+                Forgot password?
+              </a>
+            </div>
             <input
               type="password"
               required
