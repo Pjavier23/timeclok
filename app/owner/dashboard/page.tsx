@@ -489,26 +489,29 @@ export default function OwnerDashboard() {
                 </p>
               </div>
 
-              {/* Stat cards */}
+              {/* Stat cards — all clickable */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
                 {[
-                  { label: 'Total Employees', value: stats?.employeeCount ?? 0, icon: '👥', color: '#00d9ff', sub: 'on your team' },
-                  { label: 'Working Now', value: activeSessions.length, icon: '🟢', color: '#22c55e', sub: 'clocked in live' },
-                  { label: 'Hours This Week', value: `${stats?.weeklyHours ?? 0}h`, icon: '📊', color: '#a78bfa', sub: 'across all staff' },
-                  { label: 'Pending Payroll', value: `$${(stats?.pendingPayrollTotal ?? 0).toFixed(0)}`, icon: '💰', color: '#f59e0b', sub: 'awaiting approval' },
+                  { label: 'Total Employees', value: stats?.employeeCount ?? 0, icon: '👥', color: '#00d9ff', sub: 'Tap to view all', tab: 'employees' as Tab },
+                  { label: 'Working Now', value: activeSessions.length, icon: '🟢', color: '#22c55e', sub: 'Tap to see who', tab: 'timeentries' as Tab },
+                  { label: 'Hours This Week', value: `${stats?.weeklyHours ?? 0}h`, icon: '📊', color: '#a78bfa', sub: 'Tap to view entries', tab: 'timeentries' as Tab },
+                  { label: 'Pending Payroll', value: `$${(stats?.pendingPayrollTotal ?? 0).toFixed(0)}`, icon: '💰', color: '#f59e0b', sub: 'Tap to approve', tab: 'payroll' as Tab },
                 ].map(s => (
                   <div
                     key={s.label}
-                    style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.5rem', cursor: 'default', transition: 'border-color 0.2s, transform 0.2s' }}
-                    onMouseEnter={e => { (e.currentTarget).style.borderColor = `${s.color}33`; (e.currentTarget).style.transform = 'translateY(-1px)' }}
-                    onMouseLeave={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.06)'; (e.currentTarget).style.transform = 'none' }}
+                    onClick={() => setActiveTab(s.tab)}
+                    style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.5rem', cursor: 'pointer', transition: 'border-color 0.2s, transform 0.2s' }}
+                    onMouseEnter={e => { (e.currentTarget).style.borderColor = `${s.color}55`; (e.currentTarget).style.transform = 'translateY(-2px)'; (e.currentTarget).style.background = '#202020' }}
+                    onMouseLeave={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.06)'; (e.currentTarget).style.transform = 'none'; (e.currentTarget).style.background = '#1a1a1a' }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
                       <span style={{ fontSize: '0.75rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</span>
                       <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>{s.icon}</div>
                     </div>
                     <div style={{ fontSize: '2.25rem', fontWeight: '900', color: s.color, lineHeight: 1, marginBottom: '0.4rem' }}>{s.value}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#444' }}>{s.sub}</div>
+                    <div style={{ fontSize: '0.75rem', color: s.color, opacity: 0.6, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      {s.sub} <span style={{ fontSize: '0.65rem' }}>→</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -533,7 +536,13 @@ export default function OwnerDashboard() {
                       const active = activeSessions.find((e: any) => e.employee_id === emp.id || e.employees?.id === emp.id)
                       const isClockedIn = !!active
                       return (
-                        <div key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', padding: '0.875rem', background: isClockedIn ? 'rgba(34,197,94,0.05)' : 'rgba(255,255,255,0.02)', borderRadius: '10px', border: `1px solid ${isClockedIn ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.04)'}` }}>
+                        <div
+                          key={emp.id}
+                          onClick={() => router.push(`/owner/employees/${emp.id}`)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', padding: '0.875rem', background: isClockedIn ? 'rgba(34,197,94,0.05)' : 'rgba(255,255,255,0.02)', borderRadius: '10px', border: `1px solid ${isClockedIn ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.04)'}`, cursor: 'pointer', transition: 'all 0.15s' }}
+                          onMouseEnter={e => { (e.currentTarget).style.transform = 'translateY(-1px)'; (e.currentTarget).style.borderColor = isClockedIn ? 'rgba(34,197,94,0.35)' : 'rgba(255,255,255,0.12)' }}
+                          onMouseLeave={e => { (e.currentTarget).style.transform = 'none'; (e.currentTarget).style.borderColor = isClockedIn ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.04)' }}
+                        >
                           <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: `linear-gradient(135deg, ${isClockedIn ? '#22c55e' : '#333'}, ${isClockedIn ? '#16a34a' : '#222'})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: '800', color: isClockedIn ? '#fff' : '#555', flexShrink: 0, position: 'relative' } as React.CSSProperties}>
                             {(emp.users?.full_name || emp.users?.email || 'U')[0].toUpperCase()}
                             <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '12px', height: '12px', borderRadius: '50%', background: isClockedIn ? '#22c55e' : '#444', border: '2px solid #1a1a1a' } as React.CSSProperties} />
@@ -546,8 +555,9 @@ export default function OwnerDashboard() {
                               {isClockedIn ? `⏱ Since ${formatTime(active.clock_in)}` : 'Off clock'}
                             </div>
                           </div>
-                          <div style={{ fontSize: '0.75rem', color: '#555', flexShrink: 0 }}>
-                            ${emp.hourly_rate?.toFixed(0)}/h
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem', flexShrink: 0 }}>
+                            <div style={{ fontSize: '0.75rem', color: '#555' }}>${emp.hourly_rate?.toFixed(0)}/h</div>
+                            <div style={{ fontSize: '0.65rem', color: '#333' }}>View →</div>
                           </div>
                         </div>
                       )
