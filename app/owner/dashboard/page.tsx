@@ -6,7 +6,7 @@ import { createClient } from '../../lib/supabase'
 import { useLang } from '../../contexts/LanguageContext'
 import { LanguageToggle } from '../../components/LanguageToggle'
 
-type Tab = 'overview' | 'employees' | 'payroll' | 'timeentries' | 'billing' | 'settings'
+type Tab = 'overview' | 'employees' | 'payroll' | 'timeentries' | 'schedule' | 'billing' | 'settings'
 
 export default function OwnerDashboard() {
   const router = useRouter()
@@ -46,6 +46,13 @@ export default function OwnerDashboard() {
   const [rateSaving, setRateSaving] = useState(false)
 
   const [showInviteModal, setShowInviteModal] = useState(false)
+  // Schedules
+  const [schedules, setSchedules] = useState<any[]>([])
+  const [scheduleLoading, setScheduleLoading] = useState(false)
+  const [showShiftForm, setShowShiftForm] = useState(false)
+  const [shiftForm, setShiftForm] = useState({ employee_id: '', shift_date: '', start_time: '09:00', end_time: '17:00', location: '', notes: '' })
+  const [shiftSaving, setShiftSaving] = useState(false)
+  const [scheduleMigrationNeeded, setScheduleMigrationNeeded] = useState(false)
   const [showAllActivity, setShowAllActivity] = useState(false)
   const [activityEmployeeFilter, setActivityEmployeeFilter] = useState<string>('all')
   const [payrollEmployeeFilter, setPayrollEmployeeFilter] = useState<string>('all')
@@ -90,6 +97,47 @@ export default function OwnerDashboard() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  const fetchSchedules = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    setScheduleLoading(true)
+    const res = await fetch('/api/owner/schedules', { headers: { Authorization: `Bearer ${session.access_token}` } })
+    const json = await res.json()
+    setSchedules(json.schedules || [])
+    if (json.migrationNeeded) setScheduleMigrationNeeded(true)
+    setScheduleLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'schedule') fetchSchedules()
+  }, [activeTab, fetchSchedules])
+
+  const handleCreateShift = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    setShiftSaving(true)
+    const res = await fetch('/api/owner/schedules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify(shiftForm),
+    })
+    const json = await res.json()
+    setShiftSaving(false)
+    if (json.schedule) {
+      setSchedules(prev => [...prev, json.schedule].sort((a, b) => a.shift_date.localeCompare(b.shift_date)))
+      setShowShiftForm(false)
+      setShiftForm({ employee_id: '', shift_date: '', start_time: '09:00', end_time: '17:00', location: '', notes: '' })
+    }
+    if (json.migrationNeeded) setScheduleMigrationNeeded(true)
+  }
+
+  const handleDeleteShift = async (id: string) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    await fetch('/api/owner/schedules', { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ id }) })
+    setSchedules(prev => prev.filter(s => s.id !== id))
+  }
 
   const handleRateUpdate = async (empId: string) => {
     const rate = parseFloat(editingRateValue)
@@ -413,6 +461,7 @@ export default function OwnerDashboard() {
     { id: 'employees', icon: '⬡', label: t.employees },
     { id: 'timeentries', icon: '◷', label: t.timeEntries },
     { id: 'payroll', icon: '◈', label: t.payroll },
+    { id: 'schedule', icon: '📅', label: 'Schedule' },
     { id: 'billing', icon: '💳', label: t.billing },
   ]
 
@@ -1136,6 +1185,140 @@ export default function OwnerDashboard() {
                   </>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ── SCHEDULE TAB ── */}
+          {activeTab === 'schedule' && (
+            <div>
+              <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>📅 Schedule</h1>
+                  <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>Assign shifts to your employees — they'll see it on their dashboard</p>
+                </div>
+                <button onClick={() => setShowShiftForm(true)} style={{ background: '#00d9ff', color: '#000', border: 'none', padding: '0.625rem 1.25rem', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', fontSize: '0.875rem' }}>
+                  + Add Shift
+                </button>
+              </div>
+
+              {scheduleMigrationNeeded && (
+                <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.25rem' }}>
+                  <div style={{ fontWeight: '700', color: '#f59e0b', marginBottom: '0.4rem' }}>⚠️ Database setup required</div>
+                  <div style={{ fontSize: '0.85rem', color: '#888', marginBottom: '0.75rem' }}>Run this SQL in your Supabase SQL Editor to enable schedules:</div>
+                  <code style={{ display: 'block', background: '#0f0f0f', padding: '0.875rem', borderRadius: '8px', fontSize: '0.78rem', color: '#00d9ff', whiteSpace: 'pre-wrap', wordBreak: 'break-all' } as React.CSSProperties}>
+                    {`CREATE TABLE IF NOT EXISTS schedules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
+  employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
+  shift_date DATE NOT NULL,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  location TEXT,
+  notes TEXT,
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_schedules_employee ON schedules(employee_id);
+CREATE INDEX IF NOT EXISTS idx_schedules_company ON schedules(company_id);`}
+                  </code>
+                </div>
+              )}
+
+              {/* Add shift form */}
+              {showShiftForm && (
+                <div style={{ background: '#1a1a1a', border: '1px solid rgba(0,217,255,0.2)', borderRadius: '14px', padding: '1.5rem', marginBottom: '1.25rem' }}>
+                  <h3 style={{ margin: '0 0 1.25rem', fontSize: '1rem', fontWeight: '800' }}>New Shift</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', marginBottom: '0.4rem' }}>Employee *</label>
+                      <select value={shiftForm.employee_id} onChange={e => setShiftForm(p => ({...p, employee_id: e.target.value}))}
+                        style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '0.75rem', color: shiftForm.employee_id ? '#fff' : '#555', fontSize: '0.9rem', outline: 'none' } as React.CSSProperties}>
+                        <option value="">Select employee...</option>
+                        {employees?.map((emp: any) => (
+                          <option key={emp.id} value={emp.id}>{emp.users?.full_name || emp.users?.email?.split('@')[0]}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', marginBottom: '0.4rem' }}>Date *</label>
+                      <input type="date" value={shiftForm.shift_date} onChange={e => setShiftForm(p => ({...p, shift_date: e.target.value}))}
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '0.75rem', color: '#fff', fontSize: '0.9rem', outline: 'none' } as React.CSSProperties} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', marginBottom: '0.4rem' }}>Start Time *</label>
+                      <input type="time" value={shiftForm.start_time} onChange={e => setShiftForm(p => ({...p, start_time: e.target.value}))}
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '0.75rem', color: '#fff', fontSize: '0.9rem', outline: 'none' } as React.CSSProperties} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', marginBottom: '0.4rem' }}>End Time *</label>
+                      <input type="time" value={shiftForm.end_time} onChange={e => setShiftForm(p => ({...p, end_time: e.target.value}))}
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '0.75rem', color: '#fff', fontSize: '0.9rem', outline: 'none' } as React.CSSProperties} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', marginBottom: '0.4rem' }}>Location</label>
+                      <input type="text" value={shiftForm.location} onChange={e => setShiftForm(p => ({...p, location: e.target.value}))} placeholder="123 Main St or Job site name"
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '0.75rem', color: '#fff', fontSize: '0.9rem', outline: 'none' } as React.CSSProperties} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', marginBottom: '0.4rem' }}>Notes</label>
+                      <input type="text" value={shiftForm.notes} onChange={e => setShiftForm(p => ({...p, notes: e.target.value}))} placeholder="Optional notes for employee"
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '0.75rem', color: '#fff', fontSize: '0.9rem', outline: 'none' } as React.CSSProperties} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button onClick={handleCreateShift} disabled={shiftSaving || !shiftForm.employee_id || !shiftForm.shift_date}
+                      style={{ background: (!shiftForm.employee_id || !shiftForm.shift_date) ? 'rgba(0,217,255,0.3)' : '#00d9ff', color: '#000', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', fontSize: '0.9rem', opacity: shiftSaving ? 0.6 : 1 }}>
+                      {shiftSaving ? 'Saving...' : 'Save Shift'}
+                    </button>
+                    <button onClick={() => setShowShiftForm(false)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#555', padding: '0.75rem 1.25rem', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>Cancel</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Schedule list */}
+              {scheduleLoading ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>Loading schedules...</div>
+              ) : schedules.length === 0 ? (
+                <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '4rem 2rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📅</div>
+                  <div style={{ fontWeight: '700', marginBottom: '0.25rem' }}>No shifts scheduled</div>
+                  <div style={{ fontSize: '0.85rem', color: '#555' }}>Add shifts and your employees will see them on their dashboard</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {schedules.map((shift: any) => {
+                    const empName = shift.employees?.users?.full_name || shift.employees?.users?.email?.split('@')[0] || 'Employee'
+                    const isToday = shift.shift_date === new Date().toISOString().slice(0, 10)
+                    const isPast = shift.shift_date < new Date().toISOString().slice(0, 10)
+                    return (
+                      <div key={shift.id} style={{ background: '#1a1a1a', border: `1px solid ${isToday ? 'rgba(0,217,255,0.25)' : 'rgba(255,255,255,0.06)'}`, borderRadius: '12px', padding: '1rem 1.25rem', opacity: isPast ? 0.6 : 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+                              {isToday && <span style={{ fontSize: '0.68rem', background: 'rgba(0,217,255,0.15)', color: '#00d9ff', fontWeight: '700', padding: '0.1rem 0.45rem', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Today</span>}
+                              {isPast && <span style={{ fontSize: '0.68rem', color: '#444', fontWeight: '700' }}>Past</span>}
+                              <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>{empName}</span>
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: '#888' }}>
+                              {new Date(shift.shift_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                              {' · '}
+                              <span style={{ color: '#00d9ff', fontWeight: '700' }}>{shift.start_time.slice(0,5)} – {shift.end_time.slice(0,5)}</span>
+                            </div>
+                            {shift.location && <div style={{ fontSize: '0.78rem', color: '#555', marginTop: '0.2rem' }}>📍 {shift.location}</div>}
+                            {shift.notes && <div style={{ fontSize: '0.78rem', color: '#444', marginTop: '0.2rem', fontStyle: 'italic' }}>"{shift.notes}"</div>}
+                          </div>
+                          <button onClick={() => handleDeleteShift(shift.id)}
+                            style={{ background: 'transparent', border: 'none', color: '#333', cursor: 'pointer', fontSize: '1rem', padding: '0.25rem', flexShrink: 0 }}
+                            onMouseEnter={e => { (e.currentTarget).style.color = '#ef4444' }}
+                            onMouseLeave={e => { (e.currentTarget).style.color = '#333' }}>
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 

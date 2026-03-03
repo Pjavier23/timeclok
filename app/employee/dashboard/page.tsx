@@ -21,8 +21,12 @@ export default function EmployeeDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [warning, setWarning] = useState('')
-  const [activeTab, setActiveTab] = useState<'clock' | 'history' | 'earnings'>('clock')
+  const [activeTab, setActiveTab] = useState<'clock' | 'history' | 'earnings' | 'schedule'>('clock')
   const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set())
+  const [payrollStatusFilter, setPayrollStatusFilter] = useState<string>('all')
+  const [payrollDateFilter, setPayrollDateFilter] = useState<string>('')
+  const [mySchedule, setMySchedule] = useState<any[]>([])
+  const [scheduleLoaded, setScheduleLoaded] = useState(false)
   const [data, setData] = useState<any>(null)
   const [clockLoading, setClockLoading] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -85,6 +89,53 @@ export default function EmployeeDashboard() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Load schedule when tab opens
+  useEffect(() => {
+    if (activeTab !== 'schedule' || scheduleLoaded) return
+    const load = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/employee/schedule', { headers: { Authorization: `Bearer ${session.access_token}` } })
+      const json = await res.json()
+      setMySchedule(json.schedules || [])
+      setScheduleLoaded(true)
+
+      // 5-minute clock-in/out reminders using browser Notifications
+      const shifts = json.schedules || []
+      if (shifts.length === 0 || typeof window === 'undefined') return
+      if (Notification.permission === 'default') await Notification.requestPermission()
+      if (Notification.permission !== 'granted') return
+
+      const now = Date.now()
+      shifts.forEach((shift: any) => {
+        const startDt = new Date(`${shift.shift_date}T${shift.start_time}`).getTime()
+        const endDt   = new Date(`${shift.shift_date}T${shift.end_time}`).getTime()
+        const fiveMin = 5 * 60 * 1000
+        // Clock-in reminder: 5 min before start
+        const msToStart = startDt - fiveMin - now
+        if (msToStart > 0 && msToStart < 24 * 3600 * 1000) {
+          setTimeout(() => {
+            new Notification('⏰ TimeClok Reminder', {
+              body: `Your shift starts in 5 minutes! Clock in at ${shift.start_time.slice(0,5)}${shift.location ? ' · ' + shift.location : ''}`,
+              icon: '/favicon.ico',
+            })
+          }, msToStart)
+        }
+        // Clock-out reminder: 5 min before end
+        const msToEnd = endDt - fiveMin - now
+        if (msToEnd > 0 && msToEnd < 24 * 3600 * 1000) {
+          setTimeout(() => {
+            new Notification('⏰ TimeClok Reminder', {
+              body: `Your shift ends in 5 minutes. Don't forget to clock out at ${shift.end_time.slice(0,5)}!`,
+              icon: '/favicon.ico',
+            })
+          }, msToEnd)
+        }
+      })
+    }
+    load()
+  }, [activeTab, scheduleLoaded])
 
   // Restore break state from localStorage when active entry loads
   useEffect(() => {
@@ -350,6 +401,7 @@ export default function EmployeeDashboard() {
 
   const tabs = [
     { id: 'clock' as const, icon: '⏰', label: `${t.clockIn.split(' ')[0]}/${t.clockOut.split(' ')[0]}` },
+    { id: 'schedule' as const, icon: '📅', label: 'Schedule' },
     { id: 'history' as const, icon: '📋', label: t.history },
     { id: 'earnings' as const, icon: '💵', label: t.earnings },
   ]
@@ -764,6 +816,72 @@ export default function EmployeeDashboard() {
         )}
 
         {/* ── HISTORY TAB ── */}
+        {/* ── SCHEDULE TAB ── */}
+        {activeTab === 'schedule' && (
+          <div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: '0 0 0.2rem', fontSize: '1.25rem', fontWeight: '800' }}>📅 My Schedule</h2>
+              <div style={{ fontSize: '0.8rem', color: '#555' }}>Upcoming shifts assigned by your employer</div>
+            </div>
+
+            {!scheduleLoaded ? (
+              <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>Loading...</div>
+            ) : mySchedule.length === 0 ? (
+              <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '4rem 2rem', textAlign: 'center' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📅</div>
+                <div style={{ fontWeight: '700', marginBottom: '0.25rem' }}>No upcoming shifts</div>
+                <div style={{ fontSize: '0.85rem', color: '#555' }}>Your employer hasn't assigned any shifts yet</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                {mySchedule.map((shift: any) => {
+                  const isToday = shift.shift_date === new Date().toISOString().slice(0, 10)
+                  const shiftDate = new Date(shift.shift_date + 'T00:00:00')
+                  const dayLabel = isToday ? 'Today' : shiftDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+                  const startFmt = shift.start_time.slice(0, 5)
+                  const endFmt = shift.end_time.slice(0, 5)
+                  // Calculate duration
+                  const [sh, sm] = startFmt.split(':').map(Number)
+                  const [eh, em] = endFmt.split(':').map(Number)
+                  const dur = ((eh * 60 + em) - (sh * 60 + sm)) / 60
+                  return (
+                    <div key={shift.id} style={{ background: isToday ? 'rgba(0,217,255,0.06)' : '#1a1a1a', border: `1px solid ${isToday ? 'rgba(0,217,255,0.3)' : 'rgba(255,255,255,0.07)'}`, borderRadius: '14px', padding: '1.25rem', position: 'relative', overflow: 'hidden' }}>
+                      {isToday && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #00d9ff, #0099cc)' }} />}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                        <div>
+                          {isToday && <span style={{ fontSize: '0.68rem', background: 'rgba(0,217,255,0.15)', color: '#00d9ff', fontWeight: '800', padding: '0.15rem 0.5rem', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: '0.35rem', width: 'fit-content' }}>Today</span>}
+                          <div style={{ fontWeight: '800', fontSize: '1rem' }}>{dayLabel}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#00d9ff' }}>{startFmt} – {endFmt}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#555' }}>{dur.toFixed(1)}h shift</div>
+                        </div>
+                      </div>
+                      {shift.location && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', color: '#888', marginBottom: '0.35rem' }}>
+                          <span>📍</span>
+                          <span>{shift.location}</span>
+                        </div>
+                      )}
+                      {shift.notes && (
+                        <div style={{ fontSize: '0.8rem', color: '#555', fontStyle: 'italic' }}>"{shift.notes}"</div>
+                      )}
+                      {isToday && !isClockedIn && (
+                        <button onClick={() => setActiveTab('clock')} style={{ marginTop: '0.875rem', background: '#00d9ff', color: '#000', border: 'none', borderRadius: '8px', padding: '0.5rem 1rem', fontWeight: '800', cursor: 'pointer', fontSize: '0.82rem', width: '100%' }}>
+                          ⏱ Go to Clock In
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+                <div style={{ fontSize: '0.75rem', color: '#333', textAlign: 'center', marginTop: '0.25rem' }}>
+                  🔔 You'll receive browser notifications 5 min before each shift starts and ends
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'history' && (
           <div>
             <div style={{ marginBottom: '1.5rem' }}>
@@ -962,28 +1080,78 @@ export default function EmployeeDashboard() {
 
             {/* Payroll records */}
             <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', overflow: 'hidden' }}>
-              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ fontWeight: '800', fontSize: '1rem' }}>{t.payrollRecords}</div>
+              <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div style={{ fontWeight: '800', fontSize: '1rem' }}>{t.payrollRecords}</div>
+                  {/* Download CSV */}
+                  {payroll?.length > 0 && (
+                    <button
+                      onClick={() => {
+                        const filtered = (payroll || []).filter((pr: any) => {
+                          if (payrollStatusFilter !== 'all' && pr.status !== payrollStatusFilter) return false
+                          if (payrollDateFilter && pr.week_ending < payrollDateFilter) return false
+                          return true
+                        })
+                        const headers = ['Week Ending', 'Hours', 'Hourly Rate', 'Gross Pay', 'Tax Reserved', 'Net Pay', 'Status']
+                        const rows = filtered.map((pr: any) => [
+                          pr.week_ending, pr.total_hours, pr.hourly_rate || '', pr.total_amount?.toFixed(2) || '0.00',
+                          (pr.tax_withheld || 0).toFixed(2), (pr.net_amount ?? pr.total_amount)?.toFixed(2) || '0.00', pr.status
+                        ])
+                        const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+                        const blob = new Blob([csv], { type: 'text/csv' })
+                        const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+                        a.download = `payroll-${new Date().toISOString().slice(0,10)}.csv`; a.click()
+                      }}
+                      style={{ background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.2)', color: '#00d9ff', padding: '0.4rem 0.875rem', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem' }}
+                    >
+                      ⬇ Download CSV
+                    </button>
+                  )}
+                </div>
+                {/* Filters */}
+                {payroll?.length > 0 && (
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <select
+                      value={payrollStatusFilter}
+                      onChange={e => setPayrollStatusFilter(e.target.value)}
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', padding: '0.35rem 0.6rem', color: '#aaa', fontSize: '0.78rem', outline: 'none', cursor: 'pointer' } as React.CSSProperties}
+                    >
+                      <option value="all">All Status</option>
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="paid">Paid</option>
+                    </select>
+                    <input
+                      type="date"
+                      value={payrollDateFilter}
+                      onChange={e => setPayrollDateFilter(e.target.value)}
+                      placeholder="From week ending"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '7px', padding: '0.35rem 0.6rem', color: '#aaa', fontSize: '0.78rem', outline: 'none', flex: 1 } as React.CSSProperties}
+                    />
+                    {(payrollStatusFilter !== 'all' || payrollDateFilter) && (
+                      <button onClick={() => { setPayrollStatusFilter('all'); setPayrollDateFilter('') }} style={{ background: 'transparent', border: 'none', color: '#555', cursor: 'pointer', fontSize: '0.78rem' }}>✕ Clear</button>
+                    )}
+                  </div>
+                )}
               </div>
               {!payroll?.length ? (
                 <div style={{ padding: '2.5rem', textAlign: 'center', color: '#444', fontSize: '0.875rem' }}>{t.noPayrollRecords}</div>
               ) : (
                 <div style={{ padding: '0.75rem' }}>
-                  {payroll.map((pr: any, i: number) => {
+                  {(payroll || []).filter((pr: any) => {
+                    if (payrollStatusFilter !== 'all' && pr.status !== payrollStatusFilter) return false
+                    if (payrollDateFilter && pr.week_ending < payrollDateFilter) return false
+                    return true
+                  }).map((pr: any, i: number, arr: any[]) => {
                     const gross = pr.total_amount || 0
                     const taxWithheld = pr.tax_withheld || 0
                     const net = pr.net_amount ?? gross
                     return (
-                      <div
-                        key={pr.id}
-                        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '1rem', marginBottom: i < payroll.length - 1 ? '0.5rem' : '0' }}
-                      >
-                        {/* Row 1: week + status */}
+                      <div key={pr.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '1rem', marginBottom: i < arr.length - 1 ? '0.5rem' : '0' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                           <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#aaa' }}>{t.weekOfLabel} {pr.week_ending}</div>
                           {statusBadge(pr.status)}
                         </div>
-                        {/* Row 2: stats grid */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
                           <div>
                             <div style={{ fontSize: '0.62rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>{t.hours}</div>
@@ -998,9 +1166,7 @@ export default function EmployeeDashboard() {
                             <div style={{ fontSize: '1rem', fontWeight: '900', color: '#22c55e' }}>${net.toFixed(2)}</div>
                           </div>
                         </div>
-                        {taxWithheld > 0 && (
-                          <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: '#f59e0b' }}>🐷 ${taxWithheld.toFixed(2)} tax reserved</div>
-                        )}
+                        {taxWithheld > 0 && <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: '#f59e0b' }}>🐷 ${taxWithheld.toFixed(2)} tax reserved</div>}
                       </div>
                     )
                   })}
