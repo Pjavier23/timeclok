@@ -1287,31 +1287,54 @@ export default function OwnerDashboard() {
               </>
             ) : (
               <>
-                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                  <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>{inviteResult.emailSent ? '✉️' : inviteResult.smsSent ? '📱' : '🔗'}</div>
-                  <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.4rem', fontWeight: '900', color: inviteResult.success ? '#22c55e' : '#ef4444' }}>
-                    {inviteResult.emailSent ? 'Email Sent!' : inviteResult.smsSent ? 'SMS Sent!' : 'Share This Link'}
+                {/* Status */}
+                <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>
+                    {inviteResult.emailSent ? '✉️' : inviteResult.smsSent ? '📱' : '🔗'}
+                  </div>
+                  <h3 style={{ margin: '0 0 0.4rem', fontSize: '1.3rem', fontWeight: '900', color: inviteResult.emailSent || inviteResult.smsSent ? '#22c55e' : '#fff' }}>
+                    {inviteResult.emailSent ? 'Email Sent!' : inviteResult.smsSent ? 'SMS Sent!' : 'Send This Link to Your Employee'}
                   </h3>
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#666', lineHeight: 1.6 }}>{inviteResult.message}</p>
+                  {(inviteResult.emailSent || inviteResult.smsSent) && (
+                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#555' }}>Also share the link below as backup</p>
+                  )}
                 </div>
 
+                {/* Big prominent invite link — always shown */}
                 {inviteResult.inviteUrl && (
-                  <div style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '1rem' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#555', marginBottom: '0.5rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Invite Link</div>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <code style={{ fontSize: '0.75rem', color: '#888', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>
-                        {inviteResult.inviteUrl}
-                      </code>
+                  <div style={{ marginBottom: '1.25rem', background: 'rgba(0,217,255,0.06)', border: '2px solid rgba(0,217,255,0.25)', borderRadius: '12px', padding: '1.25rem' }}>
+                    <div style={{ fontSize: '0.7rem', color: '#00d9ff', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
+                      📋 Employee Invite Link
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#aaa', wordBreak: 'break-all', marginBottom: '1rem', lineHeight: 1.5, background: 'rgba(0,0,0,0.3)', padding: '0.75rem', borderRadius: '8px' } as React.CSSProperties}>
+                      {inviteResult.inviteUrl}
+                    </div>
+                    {/* Share buttons */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(inviteResult.inviteUrl).catch(() => {})
                           setCopiedLink(true)
-                          setTimeout(() => setCopiedLink(false), 2000)
+                          setTimeout(() => setCopiedLink(false), 3000)
                         }}
-                        style={{ padding: '0.375rem 0.75rem', background: copiedLink ? 'rgba(34,197,94,0.15)' : 'rgba(0,217,255,0.12)', border: `1px solid ${copiedLink ? 'rgba(34,197,94,0.3)' : 'rgba(0,217,255,0.25)'}`, color: copiedLink ? '#22c55e' : '#00d9ff', borderRadius: '7px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', whiteSpace: 'nowrap', transition: 'all 0.2s' } as React.CSSProperties}
+                        style={{ padding: '0.6rem 0.5rem', background: copiedLink ? 'rgba(34,197,94,0.15)' : 'rgba(0,217,255,0.12)', border: `1px solid ${copiedLink ? 'rgba(34,197,94,0.35)' : 'rgba(0,217,255,0.3)'}`, color: copiedLink ? '#22c55e' : '#00d9ff', borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: '700', transition: 'all 0.2s' } as React.CSSProperties}
                       >
-                        {copiedLink ? '✓ Copied' : '📋 Copy'}
+                        {copiedLink ? '✓ Copied!' : '📋 Copy Link'}
                       </button>
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent(`You've been invited to join our team on TimeClok! Create your account here: ${inviteResult.inviteUrl}`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ padding: '0.6rem 0.5rem', background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: '700', textAlign: 'center', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' } as React.CSSProperties}
+                      >
+                        💬 WhatsApp
+                      </a>
+                      <a
+                        href={`sms:?body=${encodeURIComponent(`Join our team on TimeClok: ${inviteResult.inviteUrl}`)}`}
+                        style={{ padding: '0.6rem 0.5rem', background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', color: '#a78bfa', borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: '700', textAlign: 'center', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' } as React.CSSProperties}
+                      >
+                        📱 Text
+                      </a>
                     </div>
                   </div>
                 )}
