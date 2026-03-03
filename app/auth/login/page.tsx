@@ -84,19 +84,22 @@ function LoginForm() {
               </div>
             </div>
 
-            {/* Demo box */}
+            {/* Demo box — shows only the relevant demo account for the selected tab */}
             <div style={{ background: `${accent}0a`, border: `1px solid ${accent}22`, borderRadius: '10px', padding: '0.875rem', marginBottom: '1.5rem' }}>
               <div style={{ fontSize: '0.7rem', color: accent, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>{t.demoTitle}</div>
-              <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.2rem' }}>
-                <strong style={{ color: '#00d9ff' }}>{t.demoOwner}:</strong>{' '}
-                <span onClick={() => fillDemo('owner')} style={{ cursor: 'pointer', textDecoration: 'underline', color: '#aaa' }}>demo.owner@timeclok.com</span>
-                {' '}/ Demo1234!
-              </div>
-              <div style={{ fontSize: '0.78rem', color: '#888' }}>
-                <strong style={{ color: '#22c55e' }}>{t.demoEmployee}:</strong>{' '}
-                <span onClick={() => fillDemo('employee')} style={{ cursor: 'pointer', textDecoration: 'underline', color: '#aaa' }}>demo.employee@timeclok.com</span>
-                {' '}/ Demo1234!
-              </div>
+              {isEmployer ? (
+                <div style={{ fontSize: '0.78rem', color: '#888' }}>
+                  <strong style={{ color: '#00d9ff' }}>{t.demoOwner}:</strong>{' '}
+                  <span onClick={() => fillDemo('owner')} style={{ cursor: 'pointer', textDecoration: 'underline', color: '#aaa' }}>demo.owner@timeclok.com</span>
+                  {' '}/ Demo1234!
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.78rem', color: '#888' }}>
+                  <strong style={{ color: '#22c55e' }}>{t.demoEmployee}:</strong>{' '}
+                  <span onClick={() => fillDemo('employee')} style={{ cursor: 'pointer', textDecoration: 'underline', color: '#aaa' }}>demo.employee@timeclok.com</span>
+                  {' '}/ Demo1234!
+                </div>
+              )}
               <div style={{ fontSize: '0.67rem', color: '#444', marginTop: '0.35rem' }}>{t.clickToFill}</div>
             </div>
 
