@@ -1083,29 +1083,42 @@ export default function EmployeeDashboard() {
               <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                   <div style={{ fontWeight: '800', fontSize: '1rem' }}>{t.payrollRecords}</div>
-                  {/* Download CSV */}
+                  {/* Download buttons */}
                   {payroll?.length > 0 && (
-                    <button
-                      onClick={() => {
-                        const filtered = (payroll || []).filter((pr: any) => {
-                          if (payrollStatusFilter !== 'all' && pr.status !== payrollStatusFilter) return false
-                          if (payrollDateFilter && pr.week_ending < payrollDateFilter) return false
-                          return true
-                        })
-                        const headers = ['Week Ending', 'Hours', 'Hourly Rate', 'Gross Pay', 'Tax Reserved', 'Net Pay', 'Status']
-                        const rows = filtered.map((pr: any) => [
-                          pr.week_ending, pr.total_hours, pr.hourly_rate || '', pr.total_amount?.toFixed(2) || '0.00',
-                          (pr.tax_withheld || 0).toFixed(2), (pr.net_amount ?? pr.total_amount)?.toFixed(2) || '0.00', pr.status
-                        ])
-                        const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
-                        const blob = new Blob([csv], { type: 'text/csv' })
-                        const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
-                        a.download = `payroll-${new Date().toISOString().slice(0,10)}.csv`; a.click()
-                      }}
-                      style={{ background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.2)', color: '#00d9ff', padding: '0.4rem 0.875rem', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem' }}
-                    >
-                      ⬇ Download CSV
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        onClick={() => {
+                          const filtered = (payroll || []).filter((pr: any) => {
+                            if (payrollStatusFilter !== 'all' && pr.status !== payrollStatusFilter) return false
+                            if (payrollDateFilter && pr.week_ending < payrollDateFilter) return false
+                            return true
+                          })
+                          const headers = ['Week Ending', 'Hours', 'Hourly Rate', 'Gross Pay', 'Tax Reserved', 'Net Pay', 'Status']
+                          const rows = filtered.map((pr: any) => [
+                            pr.week_ending, pr.total_hours, pr.hourly_rate || '', pr.total_amount?.toFixed(2) || '0.00',
+                            (pr.tax_withheld || 0).toFixed(2), (pr.net_amount ?? pr.total_amount)?.toFixed(2) || '0.00', pr.status
+                          ])
+                          const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+                          const blob = new Blob([csv], { type: 'text/csv' })
+                          const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+                          a.download = `payroll-${new Date().toISOString().slice(0,10)}.csv`; a.click()
+                        }}
+                        style={{ background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.2)', color: '#00d9ff', padding: '0.4rem 0.875rem', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem' }}
+                      >
+                        ⬇ CSV
+                      </button>
+                      <button
+                        onClick={() => {
+                          const q = new URLSearchParams()
+                          if (payrollStatusFilter !== 'all') q.set('status', payrollStatusFilter)
+                          if (payrollDateFilter) q.set('from', payrollDateFilter)
+                          window.open(`/employee/payroll/report?${q}`, '_blank')
+                        }}
+                        style={{ background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.25)', color: '#a78bfa', padding: '0.4rem 0.875rem', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem' }}
+                      >
+                        📄 PDF
+                      </button>
+                    </div>
                   )}
                 </div>
                 {/* Filters */}
