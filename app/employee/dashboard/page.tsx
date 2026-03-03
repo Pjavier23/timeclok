@@ -22,6 +22,7 @@ export default function EmployeeDashboard() {
   const [error, setError] = useState('')
   const [warning, setWarning] = useState('')
   const [activeTab, setActiveTab] = useState<'clock' | 'history' | 'earnings'>('clock')
+  const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set())
   const [data, setData] = useState<any>(null)
   const [clockLoading, setClockLoading] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -765,11 +766,9 @@ export default function EmployeeDashboard() {
         {/* ── HISTORY TAB ── */}
         {activeTab === 'history' && (
           <div>
-            <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h2 style={{ margin: '0 0 0.2rem', fontSize: '1.25rem', fontWeight: '800' }}>{t.timeHistory}</h2>
-                <div style={{ fontSize: '0.8rem', color: '#555' }}>{timeEntries?.length ?? 0} {t.entries}</div>
-              </div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: '0 0 0.2rem', fontSize: '1.25rem', fontWeight: '800' }}>{t.timeHistory}</h2>
+              <div style={{ fontSize: '0.8rem', color: '#555' }}>{timeEntries?.length ?? 0} {t.entries}</div>
             </div>
 
             {!timeEntries?.length ? (
@@ -778,48 +777,111 @@ export default function EmployeeDashboard() {
                 <div style={{ fontWeight: '700', marginBottom: '0.25rem' }}>{t.noTimeEntriesYet}</div>
                 <div style={{ fontSize: '0.85rem', color: '#555' }}>{t.clockInToStart}</div>
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {timeEntries.map((entry: any, i: number) => {
-                  const isActive = !entry.clock_out
-                  return (
-                    <div
-                      key={entry.id}
-                      style={{ background: '#1a1a1a', border: `1px solid ${isActive ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.06)'}`, borderRadius: '12px', padding: '1rem 1.25rem' }}
-                    >
-                      {/* Top row: date + hours + status */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
-                        <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{formatDate(entry.clock_in)}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          <div style={{ fontSize: '1rem', fontWeight: '900', color: isActive ? '#22c55e' : '#fff' }}>
-                            {isActive ? formatElapsed(elapsed) : `${entry.hours_worked?.toFixed(2) ?? '—'}h`}
-                          </div>
-                          {statusBadge(entry.approval_status)}
-                        </div>
+            ) : (() => {
+              // Group entries by pay period using payroll records
+              const assignedIds = new Set<string>()
+              const periods: Array<{ payroll: any; entries: any[] }> = (payroll || [])
+                .slice()
+                .sort((a: any, b: any) => b.week_ending.localeCompare(a.week_ending))
+                .map((pr: any) => {
+                  const weekEnd = new Date(pr.week_ending + 'T23:59:59')
+                  const weekStart = new Date(weekEnd.getTime() - 6 * 24 * 3600 * 1000)
+                  weekStart.setHours(0, 0, 0, 0)
+                  const periodEntries = (timeEntries || []).filter((e: any) => {
+                    const d = new Date(e.clock_in)
+                    return d >= weekStart && d <= weekEnd
+                  })
+                  periodEntries.forEach((e: any) => assignedIds.add(e.id))
+                  return { payroll: pr, entries: periodEntries }
+                })
+              const unarchived = (timeEntries || []).filter((e: any) => !assignedIds.has(e.id))
+              const entryCard = (entry: any) => {
+                const isActive = !entry.clock_out
+                return (
+                  <div key={entry.id} style={{ background: '#1a1a1a', border: `1px solid ${isActive ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.06)'}`, borderRadius: '10px', padding: '0.875rem 1rem', marginBottom: '0.4rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                      <div style={{ fontWeight: '700', fontSize: '0.875rem' }}>{formatDate(entry.clock_in)}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.9rem', fontWeight: '900', color: isActive ? '#22c55e' : '#fff' }}>{isActive ? formatElapsed(elapsed) : `${entry.hours_worked?.toFixed(2) ?? '—'}h`}</span>
+                        {statusBadge(entry.approval_status)}
                       </div>
-                      {/* Bottom row: in/out times */}
-                      <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem', color: '#666' }}>
-                        <div>
-                          <span style={{ color: '#444', fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', marginRight: '0.4rem' }}>IN</span>
-                          <span style={{ color: '#aaa' }}>{formatTime(entry.clock_in)}</span>
-                        </div>
-                        <div>
-                          <span style={{ color: '#444', fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', marginRight: '0.4rem' }}>OUT</span>
-                          <span style={{ color: isActive ? '#22c55e' : '#aaa', fontWeight: isActive ? '700' : 'normal' }}>
-                            {isActive ? `● ${t.active}` : formatTime(entry.clock_out)}
-                          </span>
-                        </div>
-                      </div>
-                      {entry.notes && (
-                        <div style={{ marginTop: '0.625rem', background: 'rgba(255,255,255,0.03)', borderRadius: '7px', padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: '#666', borderLeft: '2px solid rgba(255,255,255,0.1)', fontStyle: 'italic' }}>
-                          "{entry.notes}"
-                        </div>
-                      )}
                     </div>
-                  )
-                })}
-              </div>
-            )}
+                    <div style={{ display: 'flex', gap: '1.25rem', fontSize: '0.78rem', color: '#666' }}>
+                      <span><span style={{ color: '#444', fontSize: '0.65rem', fontWeight: '700', marginRight: '0.3rem' }}>IN</span><span style={{ color: '#aaa' }}>{formatTime(entry.clock_in)}</span></span>
+                      <span><span style={{ color: '#444', fontSize: '0.65rem', fontWeight: '700', marginRight: '0.3rem' }}>OUT</span><span style={{ color: isActive ? '#22c55e' : '#aaa' }}>{isActive ? `● ${t.active}` : formatTime(entry.clock_out)}</span></span>
+                      {entry.location_name && <span style={{ color: '#444', fontSize: '0.72rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' } as React.CSSProperties}>📍 {entry.location_name}</span>}
+                    </div>
+                    {entry.notes && <div style={{ marginTop: '0.4rem', fontSize: '0.78rem', color: '#555', fontStyle: 'italic' }}>"{entry.notes}"</div>}
+                  </div>
+                )
+              }
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {/* Current / unarchived entries */}
+                  {unarchived.length > 0 && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+                        <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Current Period</span>
+                        <span style={{ fontSize: '0.72rem', color: '#444' }}>{unarchived.length} {t.entries}</span>
+                      </div>
+                      {unarchived.map(entryCard)}
+                    </div>
+                  )}
+
+                  {/* Archived pay periods */}
+                  {periods.map(({ payroll: pr, entries: pEntries }) => {
+                    const key = pr.id
+                    const isOpen = expandedPeriods.has(key)
+                    const toggle = () => setExpandedPeriods(prev => {
+                      const next = new Set(prev)
+                      isOpen ? next.delete(key) : next.add(key)
+                      return next
+                    })
+                    const statusColor = pr.status === 'paid' ? '#22c55e' : pr.status === 'approved' ? '#00d9ff' : '#f59e0b'
+                    return (
+                      <div key={key} style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', overflow: 'hidden' }}>
+                        {/* Header row — clickable */}
+                        <div
+                          onClick={toggle}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1.125rem', cursor: 'pointer', userSelect: 'none' } as React.CSSProperties}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                            <span style={{ fontSize: '0.9rem' }}>📦</span>
+                            <div>
+                              <div style={{ fontWeight: '700', fontSize: '0.875rem' }}>Week ending {pr.week_ending}</div>
+                              <div style={{ fontSize: '0.72rem', color: '#555', marginTop: '0.1rem' }}>{pEntries.length} entries · {(pr.total_hours || 0).toFixed(1)}h · ${(pr.total_amount || 0).toFixed(2)}</div>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', color: statusColor, background: `${statusColor}18`, padding: '0.2rem 0.5rem', borderRadius: '4px' }}>{pr.status}</span>
+                            <span style={{ color: '#444', fontSize: '0.9rem', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'none', display: 'inline-block' } as React.CSSProperties}>▾</span>
+                          </div>
+                        </div>
+                        {/* Expandable entries */}
+                        {isOpen && (
+                          <div style={{ padding: '0.25rem 0.875rem 0.875rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                            {pEntries.length === 0
+                              ? <div style={{ padding: '1rem', textAlign: 'center', color: '#444', fontSize: '0.8rem' }}>No entries linked to this period</div>
+                              : pEntries.map(entryCard)
+                            }
+                            {pr.tax_withheld > 0 && (
+                              <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: '#f59e0b' }}>🏛 Tax reserved: ${pr.tax_withheld.toFixed(2)}</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {periods.length === 0 && unarchived.length === 0 && (
+                    <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '4rem 2rem', textAlign: 'center' }}>
+                      <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>⏰</div>
+                      <div style={{ fontWeight: '700' }}>{t.noTimeEntriesYet}</div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         )}
 
