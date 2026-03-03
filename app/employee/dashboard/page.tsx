@@ -381,9 +381,15 @@ export default function EmployeeDashboard() {
             </div>
           )}
           <LanguageToggle />
-          <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: '800', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
-            {(user?.full_name || user?.email || 'U')[0].toUpperCase()}
-          </div>
+          <a
+            href="/employee/profile"
+            style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: '800', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0, textDecoration: 'none', color: '#fff', cursor: 'pointer', overflow: 'hidden' } as React.CSSProperties}
+            title="My Profile"
+          >
+            {employee?.avatar_url
+              ? <img src={employee.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : (user?.full_name || user?.email || 'U')[0].toUpperCase()}
+          </a>
           {!isMobile && (
             <span style={{ fontSize: '0.8rem', color: '#555', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{user?.email}</span>
           )}
