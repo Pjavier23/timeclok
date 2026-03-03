@@ -477,10 +477,10 @@ export default function OwnerDashboard() {
             <span style={{ fontSize: '1.2rem' }}>⏱</span>
             <span style={{ fontSize: '1.1rem', fontWeight: '900', background: 'linear-gradient(135deg, #00d9ff, #0099cc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } as React.CSSProperties}>TimeClok</span>
           </a>
-          {company && !isMobile && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
-              <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '1rem' }}>›</span>
-              <span style={{ fontSize: '0.8rem', color: '#555', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' } as React.CSSProperties}>{company.name}</span>
+          {company && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', minWidth: 0 }}>
+              <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.9rem', flexShrink: 0 }}>›</span>
+              <span style={{ fontSize: '0.75rem', color: '#00d9ff', fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: isMobile ? '100px' : '160px', background: 'rgba(0,217,255,0.08)', padding: '0.2rem 0.5rem', borderRadius: '6px', border: '1px solid rgba(0,217,255,0.2)' } as React.CSSProperties}>{company.name}</span>
             </div>
           )}
         </div>
@@ -586,7 +586,7 @@ export default function OwnerDashboard() {
                 </div>
               )}
               <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>{t.dashboard}</h1>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>{company?.name || t.dashboard}</h1>
                 <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>
                   {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                 </p>
@@ -891,19 +891,13 @@ export default function OwnerDashboard() {
           {/* ── TIME ENTRIES TAB ── */}
           {activeTab === 'timeentries' && (
             <div>
-              <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+              <div style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <div>
-                  <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>{t.timeEntries}</h1>
-                  <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>{timeEntries?.length ?? 0} total entries</p>
+                  <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.2rem', letterSpacing: '-0.02em' }}>{t.timeEntries}</h1>
+                  <p style={{ margin: 0, color: '#555', fontSize: '0.82rem' }}>{timeEntries?.length ?? 0} entries</p>
                 </div>
-                {/* Feature 4: CSV Export */}
                 {timeEntries?.length > 0 && (
-                  <button
-                    onClick={exportTimeEntriesCSV}
-                    style={{ background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.2)', color: '#00d9ff', padding: '0.625rem 1.25rem', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.2s' }}
-                    onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.14)' }}
-                    onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.08)' }}
-                  >
+                  <button onClick={exportTimeEntriesCSV} style={{ background: 'rgba(0,217,255,0.08)', border: '1px solid rgba(0,217,255,0.2)', color: '#00d9ff', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.8rem' }}>
                     ⬇ {t.exportCSV}
                   </button>
                 )}
@@ -913,66 +907,42 @@ export default function OwnerDashboard() {
                 {!timeEntries?.length ? (
                   <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>{t.noTimeEntries}</div>
                 ) : (
-                  <>
-                    {!isMobile && (
-                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                        {[t.employee_label, t.date, t.in, t.out, t.hours, t.location, t.status].map(h => (
-                          <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
-                        ))}
-                      </div>
-                    )}
-                    {timeEntries.map((entry: any, i: number) => (
-                      <div key={entry.id} style={isMobile ? { padding: '0.875rem 1rem', borderBottom: i < timeEntries.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' } : {}}>
-                        {isMobile ? (
-                          <>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: '800', border: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>{empInitial(entry)}</div>
-                                <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>{empName(entry)}</span>
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <span style={{ fontSize: '0.9rem', fontWeight: '800' }}>{entry.hours_worked?.toFixed(2) ?? '—'}h</span>
-                                {statusBadge(entry.approval_status)}
-                              </div>
+                  <div style={{ padding: '0.5rem' }}>
+                    {timeEntries.map((entry: any, i: number) => {
+                      const isLive = !entry.clock_out
+                      const hrs = entry.hours_worked?.toFixed(1) ?? '—'
+                      const loc = entry.location_name || (entry.latitude ? `${Number(entry.latitude).toFixed(2)}, ${Number(entry.longitude).toFixed(2)}` : null)
+                      return (
+                        <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', padding: '0.75rem 0.875rem', borderRadius: '10px', marginBottom: i < timeEntries.length - 1 ? '0.25rem' : '0', transition: 'background 0.15s' }}
+                          onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.03)' }}
+                          onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}>
+                          {/* Avatar */}
+                          <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: '800', border: `1px solid ${isLive ? 'rgba(34,197,94,0.35)' : 'rgba(255,255,255,0.06)'}`, flexShrink: 0 }}>
+                            {empInitial(entry)}
+                          </div>
+                          {/* Main info */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                              <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>{empName(entry)}</span>
+                              {isLive && <span style={{ fontSize: '0.65rem', background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontWeight: '800', padding: '0.1rem 0.4rem', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Live</span>}
                             </div>
-                            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.78rem', color: '#555' }}>
+                            <div style={{ fontSize: '0.78rem', color: '#555', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' } as React.CSSProperties}>
                               <span>{formatDate(entry.clock_in)}</span>
-                              <span>{formatTime(entry.clock_in)} → {entry.clock_out ? formatTime(entry.clock_out) : <span style={{ color: '#22c55e', fontWeight: '700' }}>Live</span>}</span>
+                              <span style={{ color: '#444' }}>·</span>
+                              <span>{formatTime(entry.clock_in)} → {entry.clock_out ? formatTime(entry.clock_out) : 'now'}</span>
+                              {loc && <><span style={{ color: '#444' }}>·</span><span>📍 {loc}</span></>}
                             </div>
-                            {entry.notes && (
-                              <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#555', fontStyle: 'italic', borderLeft: '2px solid rgba(255,255,255,0.08)', paddingLeft: '0.5rem' }}>"{entry.notes}"</div>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <div
-                              style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', alignItems: 'center', borderBottom: (!entry.notes && i < timeEntries.length - 1) ? '1px solid rgba(255,255,255,0.03)' : 'none', transition: 'background 0.15s' }}
-                              onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
-                              onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
-                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: '800', flexShrink: 0, border: '1px solid rgba(255,255,255,0.06)' }}>{empInitial(entry)}</div>
-                                <span style={{ fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{empName(entry)}</span>
-                              </div>
-                              <div style={{ fontSize: '0.8rem', color: '#666' }}>{formatDate(entry.clock_in)}</div>
-                              <div style={{ fontSize: '0.8rem', color: '#aaa' }}>{formatTime(entry.clock_in)}</div>
-                              <div style={{ fontSize: '0.8rem', color: entry.clock_out ? '#aaa' : '#22c55e', fontWeight: entry.clock_out ? 'normal' : '600' }}>{entry.clock_out ? formatTime(entry.clock_out) : '● Live'}</div>
-                              <div style={{ fontSize: '0.85rem', fontWeight: '700' }}>{entry.hours_worked?.toFixed(2) ?? '—'}</div>
-                              <div style={{ fontSize: '0.75rem', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as React.CSSProperties}>{entry.location_name ? `📍 ${entry.location_name}` : entry.latitude ? `📍 ${Number(entry.latitude).toFixed(3)}, ${Number(entry.longitude).toFixed(3)}` : '—'}</div>
-                              <div>{statusBadge(entry.approval_status)}</div>
-                            </div>
-                            {entry.notes && (
-                              <div style={{ padding: '0 1.5rem 0.875rem 1.5rem', borderBottom: i < timeEntries.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
-                                <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '7px', padding: '0.5rem 0.875rem', fontSize: '0.78rem', color: '#666', borderLeft: '2px solid rgba(255,255,255,0.1)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                  <span style={{ fontSize: '0.7rem', color: '#555', fontStyle: 'normal', fontWeight: '700' }}>NOTE:</span>"{entry.notes}"
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </>
+                            {entry.notes && <div style={{ fontSize: '0.73rem', color: '#444', marginTop: '0.2rem', fontStyle: 'italic' }}>"{entry.notes}"</div>}
+                          </div>
+                          {/* Hours + status */}
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <div style={{ fontSize: '1rem', fontWeight: '800', color: isLive ? '#22c55e' : '#fff', marginBottom: '0.25rem' }}>{hrs}h</div>
+                            {statusBadge(entry.approval_status)}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 )}
               </div>
             </div>
