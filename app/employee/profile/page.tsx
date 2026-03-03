@@ -14,6 +14,8 @@ export default function EmployeeProfilePage() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [address, setAddress] = useState('')
+  const [phone, setPhone] = useState('')
+  const [last4SSN, setLast4SSN] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -27,17 +29,23 @@ export default function EmployeeProfilePage() {
     const json = await res.json()
     setData(json)
     setAddress(json.employee?.address || '')
+    setPhone(json.employee?.phone || '')
+    // Show last 4 if already on file (format ***-**-XXXX)
+    const stored = json.employee?.tax_id || ''
+    setLast4SSN(stored ? stored.replace(/\D/g, '').slice(-4) : '')
     setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
 
-  const handleSaveAddress = async () => {
+  const handleSave = async () => {
     setSaving(true)
+    const body: Record<string, string> = { address, phone }
+    if (last4SSN.length === 4) body.tax_id = last4SSN
     await fetch('/api/employee/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ address }),
+      body: JSON.stringify(body),
     })
     setSaving(false)
     setSaved(true)
@@ -141,11 +149,26 @@ export default function EmployeeProfilePage() {
           </div>
         </div>
 
-        {/* Editable: Address */}
+        {/* Editable fields */}
         <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', padding: '1.5rem', marginBottom: '1.25rem' }}>
           <div style={{ fontSize: '0.78rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#00d9ff', marginBottom: '1.25rem' }}>✎ Editable by You</div>
 
-          <div style={{ marginBottom: '1rem' }}>
+          {/* Phone */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', marginBottom: '0.4rem' }}>Phone Number</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="+1 (555) 000-0000"
+              style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', padding: '0.875rem 1rem', color: '#fff', fontSize: '0.9rem', outline: 'none', transition: 'border-color 0.2s' } as React.CSSProperties}
+              onFocus={e => { e.target.style.borderColor = 'rgba(0,217,255,0.4)' }}
+              onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.12)' }}
+            />
+          </div>
+
+          {/* Home Address */}
+          <div style={{ marginBottom: '1.25rem' }}>
             <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', marginBottom: '0.4rem' }}>Home Address</label>
             <textarea
               value={address}
@@ -158,12 +181,32 @@ export default function EmployeeProfilePage() {
             />
           </div>
 
+          {/* Last 4 SSN */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', marginBottom: '0.4rem' }}>Last 4 of Social Security #</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ fontSize: '0.9rem', color: '#444', letterSpacing: '0.15em' }}>***-**-</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                value={last4SSN}
+                onChange={e => setLast4SSN(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="XXXX"
+                style={{ width: '80px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', padding: '0.875rem 1rem', color: '#fff', fontSize: '1rem', fontFamily: 'monospace', letterSpacing: '0.2em', outline: 'none', textAlign: 'center', transition: 'border-color 0.2s' } as React.CSSProperties}
+                onFocus={e => { e.target.style.borderColor = 'rgba(0,217,255,0.4)' }}
+                onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.12)' }}
+              />
+            </div>
+            <div style={{ fontSize: '0.72rem', color: '#444', marginTop: '0.4rem' }}>Stored securely as ***-**-XXXX. Used for payroll records.</div>
+          </div>
+
           <button
-            onClick={handleSaveAddress}
+            onClick={handleSave}
             disabled={saving}
             style={{ background: saved ? '#22c55e' : '#00d9ff', color: '#000', border: 'none', borderRadius: '10px', padding: '0.75rem 1.5rem', fontWeight: '800', fontSize: '0.9rem', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, transition: 'all 0.2s' }}
           >
-            {saved ? '✓ Saved!' : saving ? 'Saving...' : 'Save Address'}
+            {saved ? '✓ Saved!' : saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
 

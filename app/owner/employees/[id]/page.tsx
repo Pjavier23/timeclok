@@ -63,6 +63,10 @@ export default function EmployeeProfilePage() {
   const [editing, setEditing] = useState(false)
   const [taxRevealed, setTaxRevealed] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteMsg, setDeleteMsg] = useState('')
 
   // Edit form state
   const [editForm, setEditForm] = useState<any>({})
@@ -206,6 +210,27 @@ export default function EmployeeProfilePage() {
       setError(err.message || 'Avatar upload failed')
     } finally {
       setUploadingAvatar(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    const empName = profile?.users?.full_name || profile?.users?.email?.split('@')[0] || 'Employee'
+    if (deleteConfirmText.trim().toLowerCase() !== empName.toLowerCase()) return
+    setDeleting(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const res = await fetch(`/api/owner/employees/${employeeId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+    const json = await res.json()
+    setDeleting(false)
+    if (json.success) {
+      setDeleteMsg(json.message)
+      setTimeout(() => router.push('/owner/dashboard'), 3000)
+    } else {
+      setError(json.error || 'Delete failed')
+      setShowDeleteConfirm(false)
     }
   }
 
@@ -540,6 +565,72 @@ export default function EmployeeProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Delete Employee Button */}
+      <div style={{ maxWidth: '760px', margin: '0 auto', padding: '0 1.25rem 3rem' }}>
+        <div style={{ borderTop: '1px solid rgba(239,68,68,0.15)', paddingTop: '1.5rem', marginTop: '1rem' }}>
+          <button
+            onClick={() => { setShowDeleteConfirm(true); setDeleteConfirmText('') }}
+            style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', padding: '0.75rem 1.5rem', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '0.875rem', transition: 'all 0.2s' }}
+            onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(239,68,68,0.12)' }}
+            onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(239,68,68,0.06)' }}
+          >
+            🗑 Remove Employee
+          </button>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+          <div style={{ background: '#1a1a1a', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '16px', padding: '2rem', maxWidth: '420px', width: '100%' }}>
+            {deleteMsg ? (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
+                <div style={{ fontWeight: '700', fontSize: '1rem', color: '#22c55e', marginBottom: '0.5rem' }}>Employee Removed</div>
+                <div style={{ fontSize: '0.875rem', color: '#666' }}>{deleteMsg}</div>
+                <div style={{ fontSize: '0.8rem', color: '#444', marginTop: '0.5rem' }}>Redirecting to dashboard...</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: '2rem', textAlign: 'center', marginBottom: '1rem' }}>⚠️</div>
+                <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.2rem', fontWeight: '900', textAlign: 'center' }}>Remove {empName}?</h3>
+                <p style={{ margin: '0 0 1rem', fontSize: '0.875rem', color: '#666', textAlign: 'center', lineHeight: 1.6 }}>
+                  This will permanently delete their profile, time entries, and payroll records. A final report will be emailed to you for record keeping.
+                </p>
+                <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '10px', padding: '1rem', marginBottom: '1.25rem' }}>
+                  <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.5rem' }}>
+                    Type <strong style={{ color: '#ef4444' }}>{empName}</strong> to confirm:
+                  </div>
+                  <input
+                    type="text"
+                    value={deleteConfirmText}
+                    onChange={e => setDeleteConfirmText(e.target.value)}
+                    placeholder={empName}
+                    autoFocus
+                    style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.9rem', outline: 'none' } as React.CSSProperties}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#666', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting || deleteConfirmText.trim().toLowerCase() !== empName.toLowerCase()}
+                    style={{ flex: 1, padding: '0.75rem', background: deleteConfirmText.trim().toLowerCase() === empName.toLowerCase() ? '#ef4444' : 'rgba(239,68,68,0.2)', border: 'none', color: deleteConfirmText.trim().toLowerCase() === empName.toLowerCase() ? '#fff' : '#555', borderRadius: '10px', cursor: deleteConfirmText.trim().toLowerCase() === empName.toLowerCase() ? 'pointer' : 'not-allowed', fontWeight: '800', fontSize: '0.9rem', transition: 'all 0.2s' }}
+                  >
+                    {deleting ? 'Removing...' : '🗑 Remove'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

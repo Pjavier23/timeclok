@@ -11,10 +11,16 @@ export async function PATCH(request: Request) {
   const supabase = createServiceClient()
   const body = await request.json()
 
-  // Whitelist: only avatar_url and address allowed
+  // Whitelist: only avatar_url, address, phone, and last-4 tax_id allowed
   const allowed: Record<string, unknown> = {}
   if (body.avatar_url !== undefined) allowed.avatar_url = body.avatar_url
   if (body.address !== undefined) allowed.address = body.address
+  if (body.phone !== undefined) allowed.phone = body.phone
+  // tax_id: employee can only submit last 4 digits
+  if (body.tax_id !== undefined) {
+    const last4 = String(body.tax_id).replace(/\D/g, '').slice(-4)
+    if (last4.length === 4) allowed.tax_id = `***-**-${last4}`
+  }
 
   if (Object.keys(allowed).length === 0) {
     return Response.json({ error: 'No allowed fields to update' }, { status: 400 })
