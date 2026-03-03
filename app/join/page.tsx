@@ -201,7 +201,7 @@ function JoinContent() {
     <div style={S.page}>
       {/* Top bar: logo + language toggle */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <span style={{ fontSize: '1.5rem', fontWeight: '900', color: '#00d9ff', letterSpacing: '-0.5px' }}>⏱ TimeClok</span>
+        <a href="/" style={{ fontSize: '1.5rem', fontWeight: '900', color: '#00d9ff', letterSpacing: '-0.5px', textDecoration: 'none' }}>⏱ TimeClok</a>
         <LanguageToggle />
       </div>
 

@@ -359,8 +359,10 @@ export default function EmployeeDashboard() {
       {/* ── HEADER ── */}
       <header style={{ background: '#0c0c0c', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0 1rem', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, width: '100%', boxSizing: 'border-box' } as React.CSSProperties}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0, minWidth: 0 }}>
-          <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>⏱</span>
-          <span style={{ fontSize: '1.1rem', fontWeight: '900', background: 'linear-gradient(135deg, #00d9ff, #0099cc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', flexShrink: 0 } as React.CSSProperties}>TimeClok</span>
+          <a href="/employee/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', flexShrink: 0 }}>
+            <span style={{ fontSize: '1.2rem' }}>⏱</span>
+            <span style={{ fontSize: '1.1rem', fontWeight: '900', background: 'linear-gradient(135deg, #00d9ff, #0099cc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } as React.CSSProperties}>TimeClok</span>
+          </a>
           {company?.name && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', minWidth: 0 }}>
               <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.9rem', flexShrink: 0 }}>›</span>
