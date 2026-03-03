@@ -955,6 +955,21 @@ export default function OwnerDashboard() {
                       ⬇ Export CSV
                     </button>
                   )}
+                  {/* Accountant Payroll Report */}
+                  {payroll?.length > 0 && (
+                    <button
+                      onClick={() => {
+                        const end = new Date().toISOString().slice(0, 10)
+                        const start = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+                        window.open(`/owner/payroll/report?start=${start}&end=${end}`, '_blank')
+                      }}
+                      style={{ background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.25)', color: '#a78bfa', padding: '0.625rem 1.25rem', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.2s' }}
+                      onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(167,139,250,0.15)' }}
+                      onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(167,139,250,0.08)' }}
+                    >
+                      📄 Accountant Report
+                    </button>
+                  )}
                 </div>
               </div>
 
