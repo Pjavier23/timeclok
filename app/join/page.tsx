@@ -2,6 +2,8 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { LanguageToggle } from '../components/LanguageToggle'
+import { useLang } from '../contexts/LanguageContext'
 
 function JoinContent() {
   const router = useRouter()
@@ -194,11 +196,13 @@ function JoinContent() {
   )
 
   // ── Main Form ────────────────────────────────────────────────────
+  const { t } = useLang()
   return (
     <div style={S.page}>
-      {/* Logo */}
-      <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+      {/* Top bar: logo + language toggle */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <span style={{ fontSize: '1.5rem', fontWeight: '900', color: '#00d9ff', letterSpacing: '-0.5px' }}>⏱ TimeClok</span>
+        <LanguageToggle />
       </div>
 
       <div style={S.card}>
@@ -206,7 +210,7 @@ function JoinContent() {
         <div style={S.banner}>
           <div style={S.avatar}>{companyInitial}</div>
           <div style={{ fontSize: '0.75rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '600', marginBottom: '0.25rem' }}>
-            You've been invited to join
+            {t.youveBeenInvited}
           </div>
           <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#fff' }}>{company?.name}</div>
         </div>
@@ -217,13 +221,13 @@ function JoinContent() {
 
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: '1.25rem' }}>
-              <label style={S.label}>Full Name</label>
+              <label style={S.label}>{t.fullName}</label>
               <input
                 type="text"
                 required
                 value={fullName}
                 onChange={e => setFullName(e.target.value)}
-                placeholder="Jane Smith"
+                placeholder={t.fullNamePlaceholder}
                 style={S.input}
                 onFocus={e => (e.target.style.borderColor = accentColor)}
                 onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.1)')}
@@ -281,12 +285,12 @@ function JoinContent() {
               disabled={submitting}
               style={{ ...S.btn, opacity: submitting ? 0.6 : 1, cursor: submitting ? 'not-allowed' : 'pointer' }}
             >
-              {submitting ? 'Creating your account...' : `Join ${company?.name} →`}
+              {submitting ? t.joiningBtn : `${t.joinBtn} ${company?.name} →`}
             </button>
           </form>
 
           <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.8rem', color: '#444' }}>
-            Already have an account?{' '}
+            {t.alreadyHaveAccount}{' '}
             <a href="/auth/login" style={{ color: accentColor, textDecoration: 'none', fontWeight: '600' }}>Sign in</a>
           </div>
         </div>

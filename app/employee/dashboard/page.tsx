@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
+import { useLang } from '../../contexts/LanguageContext'
+import { LanguageToggle } from '../../components/LanguageToggle'
 
 interface ShiftSummary {
   hours: number
@@ -14,6 +16,7 @@ interface ShiftSummary {
 export default function EmployeeDashboard() {
   const router = useRouter()
   const supabase = createClient()
+  const { t } = useLang()
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -296,7 +299,7 @@ export default function EmployeeDashboard() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f0f0f', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⏱</div>
-          <div style={{ color: '#555', fontSize: '0.875rem', letterSpacing: '0.05em' }}>LOADING</div>
+          <div style={{ color: '#555', fontSize: '0.875rem', letterSpacing: '0.05em' }}>{t.loading.toUpperCase()}</div>
         </div>
       </div>
     )
@@ -336,13 +339,18 @@ export default function EmployeeDashboard() {
       paid: ['#00d9ff', 'rgba(0,217,255,0.12)'],
     }
     const [color, bg] = map[s] || ['#888', 'rgba(255,255,255,0.08)']
-    return <span style={{ display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: '100px', fontSize: '0.72rem', fontWeight: '700', color, background: bg }}>{s}</span>
+    const labelMap: Record<string, string> = {
+      pending: t.pending,
+      approved: t.approved,
+      paid: t.paid,
+    }
+    return <span style={{ display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: '100px', fontSize: '0.72rem', fontWeight: '700', color, background: bg }}>{labelMap[s] ?? s}</span>
   }
 
   const tabs = [
-    { id: 'clock' as const, icon: '⏰', label: 'Clock In/Out' },
-    { id: 'history' as const, icon: '📋', label: 'History' },
-    { id: 'earnings' as const, icon: '💵', label: 'Earnings' },
+    { id: 'clock' as const, icon: '⏰', label: `${t.clockIn.split(' ')[0]}/${t.clockOut.split(' ')[0]}` },
+    { id: 'history' as const, icon: '📋', label: t.history },
+    { id: 'earnings' as const, icon: '💵', label: t.earnings },
   ]
 
   return (
@@ -370,6 +378,7 @@ export default function EmployeeDashboard() {
               <span style={{ fontSize: '0.72rem', color: isOnBreak ? '#fbbf24' : '#22c55e', fontWeight: '700', fontFamily: 'monospace' }}>{isOnBreak ? '☕' : formatElapsed(workedElapsed)}</span>
             </div>
           )}
+          <LanguageToggle />
           <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: '800', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
             {(user?.full_name || user?.email || 'U')[0].toUpperCase()}
           </div>
@@ -381,9 +390,9 @@ export default function EmployeeDashboard() {
             style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#555', padding: '0.35rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.78rem', flexShrink: 0, width: isMobile ? '30px' : 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' } as React.CSSProperties}
             onMouseEnter={e => { (e.currentTarget).style.borderColor = 'rgba(239,68,68,0.4)'; (e.currentTarget).style.color = '#ef4444' }}
             onMouseLeave={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget).style.color = '#555' }}
-            title="Sign Out"
+            title={t.signOut}
           >
-            {isMobile ? '↩' : 'Sign Out'}
+            {isMobile ? '↩' : t.signOut}
           </button>
         </div>
       </header>
@@ -407,8 +416,8 @@ export default function EmployeeDashboard() {
           <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.35)', color: '#22c55e', padding: '1rem 1.5rem', borderRadius: '12px', marginBottom: '1.25rem', fontSize: '0.9rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span style={{ fontSize: '1.25rem' }}>✅</span>
             <div>
-              <div>Clocked in at {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} — timer is running!</div>
-              <div style={{ fontSize: '0.78rem', color: '#22c55e88', marginTop: '0.2rem', fontWeight: '500' }}>GPS location captured · Shift has started</div>
+              <div>{t.clockedInAt} {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} — {t.clockInSuccess}</div>
+              <div style={{ fontSize: '0.78rem', color: '#22c55e88', marginTop: '0.2rem', fontWeight: '500' }}>{t.gpsCapture}</div>
             </div>
           </div>
         )}
@@ -452,24 +461,24 @@ export default function EmployeeDashboard() {
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #22c55e, #00d9ff)' } as React.CSSProperties} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                   <div>
-                    <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.25rem' }}>Shift Complete</div>
+                    <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.25rem' }}>{t.shiftComplete}</div>
                     <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#fff' }}>Great work! 🎉</div>
                   </div>
                   <button onClick={() => setShiftSummary(null)} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: '1rem', padding: '0.25rem' }}>✕</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: shiftSummary.note ? '1rem' : '0' }}>
                   <div style={{ background: 'rgba(34,197,94,0.08)', borderRadius: '10px', padding: '1rem', border: '1px solid rgba(34,197,94,0.15)' }}>
-                    <div style={{ fontSize: '0.7rem', color: '#22c55e88', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Hours Worked</div>
+                    <div style={{ fontSize: '0.7rem', color: '#22c55e88', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>{t.hoursWorked}</div>
                     <div style={{ fontSize: '1.75rem', fontWeight: '900', color: '#22c55e' }}>{shiftSummary.hours.toFixed(2)}h</div>
                   </div>
                   <div style={{ background: 'rgba(0,217,255,0.08)', borderRadius: '10px', padding: '1rem', border: '1px solid rgba(0,217,255,0.15)' }}>
-                    <div style={{ fontSize: '0.7rem', color: '#00d9ff88', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Shift Earnings</div>
+                    <div style={{ fontSize: '0.7rem', color: '#00d9ff88', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>{t.shiftEarnings}</div>
                     <div style={{ fontSize: '1.75rem', fontWeight: '900', color: '#00d9ff' }}>${shiftSummary.earned.toFixed(2)}</div>
                   </div>
                 </div>
                 {shiftSummary.note && (
                   <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '0.75rem 1rem', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '700', marginBottom: '0.35rem' }}>SHIFT NOTE</div>
+                    <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '700', marginBottom: '0.35rem' }}>{t.shiftNote.toUpperCase()}</div>
                     <div style={{ fontSize: '0.875rem', color: '#aaa', fontStyle: 'italic' }}>"{shiftSummary.note}"</div>
                   </div>
                 )}
@@ -506,7 +515,7 @@ export default function EmployeeDashboard() {
                   }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOnBreak ? '#fbbf24' : isClockedIn ? '#22c55e' : '#555', display: 'block', animation: isOnBreak ? 'pulse 1.5s infinite' : 'none' }} />
                     <span style={{ fontSize: '0.8rem', fontWeight: '700', color: isOnBreak ? '#fbbf24' : isClockedIn ? '#22c55e' : '#666', letterSpacing: '0.04em' }}>
-                      {isOnBreak ? '☕ ON BREAK' : isClockedIn ? 'CLOCKED IN' : 'CLOCKED OUT'}
+                      {isOnBreak ? `☕ ${t.onBreak}` : isClockedIn ? t.clockedIn : t.clockedOut}
                     </span>
                   </div>
                 </div>
@@ -519,18 +528,18 @@ export default function EmployeeDashboard() {
                     </div>
                     {isOnBreak && (
                       <div style={{ fontSize: '0.78rem', color: '#fbbf24', fontWeight: '700', marginBottom: '0.25rem', letterSpacing: '0.04em' }}>
-                        Break: {formatElapsed(currentBreakSecs)}
+                        {t.breakTime}: {formatElapsed(currentBreakSecs)}
                       </div>
                     )}
                     <div style={{ fontSize: '0.78rem', color: '#555', marginBottom: '1.25rem' }}>
-                      Clocked in at {formatTime(activeEntry.clock_in)}{totalBreakSecs > 60 ? ` · ${Math.round(totalBreakSecs / 60)}m break` : ''}
+                      {t.clockedInAt} {formatTime(activeEntry.clock_in)}{totalBreakSecs > 60 ? ` · ${Math.round(totalBreakSecs / 60)}m break` : ''}
                     </div>
 
                     {/* Feature 1: Live Earnings Ticker */}
                     {hourlyRate > 0 && (
                       <div style={{ marginBottom: '1.5rem', padding: '1.25rem', background: 'rgba(0,217,255,0.06)', border: '1px solid rgba(0,217,255,0.15)', borderRadius: '14px' }}>
                         <div style={{ fontSize: '0.7rem', color: '#00d9ff66', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>
-                          💰 Earned Today
+                          💰 {t.earnedToday}
                         </div>
                         <div style={{ fontFamily: '"SF Mono", "Fira Code", monospace', fontSize: '2.25rem', fontWeight: '900', color: '#00d9ff', lineHeight: 1, marginBottom: '0.4rem', letterSpacing: '0.02em' }}>
                           ${todayEarningsLive}
@@ -551,12 +560,12 @@ export default function EmployeeDashboard() {
                     {/* Feature 2: Clock-Out Note textarea */}
                     <div style={{ marginBottom: '1.5rem', textAlign: 'left' }}>
                       <label style={{ display: 'block', fontSize: '0.72rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.5rem' }}>
-                        Shift Note (optional)
+                        {t.shiftNote}
                       </label>
                       <textarea
                         value={clockOutNote}
                         onChange={e => setClockOutNote(e.target.value)}
-                        placeholder="What did you work on? Any notes for your manager..."
+                        placeholder={t.shiftNotePlaceholder}
                         rows={2}
                         style={{
                           width: '100%',
@@ -651,7 +660,7 @@ export default function EmployeeDashboard() {
                   }}
                 >
                   <span style={{ fontSize: '1.75rem' }}>{clockLoading ? '⏳' : isClockedIn ? '⏹' : '▶'}</span>
-                  <span>{clockLoading ? '...' : isClockedIn ? 'CLOCK OUT' : 'CLOCK IN'}</span>
+                  <span>{clockLoading ? '...' : isClockedIn ? t.clockOut : t.clockIn}</span>
                 </button>
 
                 {/* Break button — only shows when clocked in */}
@@ -677,7 +686,7 @@ export default function EmployeeDashboard() {
                       } as React.CSSProperties}
                     >
                       <span>{isOnBreak ? '▶' : '☕'}</span>
-                      <span>{isOnBreak ? 'END BREAK' : 'START BREAK'}</span>
+                      <span>{isOnBreak ? t.endBreak : t.startBreak}</span>
                     </button>
                   </div>
                 )}
@@ -687,9 +696,9 @@ export default function EmployeeDashboard() {
             {/* Quick stats row */}
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
               {[
-                { label: 'This Week', value: `${(weeklyHoursCompleted + (isClockedIn ? elapsed / 3600 : 0)).toFixed(1)}h`, color: '#00d9ff', icon: '📊' },
-                { label: 'Hourly Rate', value: `$${hourlyRate.toFixed(2)}`, color: '#22c55e', icon: '💰' },
-                { label: 'Total Earned', value: `$${(stats?.totalGross ?? 0).toFixed(0)}`, color: '#f59e0b', icon: '🏦' },
+                { label: t.thisWeek, value: `${(weeklyHoursCompleted + (isClockedIn ? elapsed / 3600 : 0)).toFixed(1)}h`, color: '#00d9ff', icon: '📊' },
+                { label: t.hourlyRate, value: `$${hourlyRate.toFixed(2)}`, color: '#22c55e', icon: '💰' },
+                { label: t.totalEarned, value: `$${(stats?.totalGross ?? 0).toFixed(0)}`, color: '#f59e0b', icon: '🏦' },
               ].map(s => (
                 <div key={s.label} style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.25rem', textAlign: 'center' }}>
                   <div style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>{s.icon}</div>
@@ -703,9 +712,9 @@ export default function EmployeeDashboard() {
             <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.25rem 1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: '800' }}>This Week's Hours</div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: '800' }}>{t.thisWeek} {t.hours}</div>
                   <div style={{ fontSize: '0.72rem', color: '#777', marginTop: '0.2rem' }}>
-                    Mon – Sun · {weeklyDayHours.reduce((a, b) => a + b, 0).toFixed(1)}h total
+                    {t.monThrSun} · {weeklyDayHours.reduce((a, b) => a + b, 0).toFixed(1)}h {t.totalLabel}
                   </div>
                 </div>
                 <div style={{ fontSize: '0.72rem', color: '#888', textAlign: 'right' }}>
@@ -750,16 +759,16 @@ export default function EmployeeDashboard() {
           <div>
             <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h2 style={{ margin: '0 0 0.2rem', fontSize: '1.25rem', fontWeight: '800' }}>Time History</h2>
-                <div style={{ fontSize: '0.8rem', color: '#555' }}>{timeEntries?.length ?? 0} entries</div>
+                <h2 style={{ margin: '0 0 0.2rem', fontSize: '1.25rem', fontWeight: '800' }}>{t.timeHistory}</h2>
+                <div style={{ fontSize: '0.8rem', color: '#555' }}>{timeEntries?.length ?? 0} {t.entries}</div>
               </div>
             </div>
 
             {!timeEntries?.length ? (
               <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '4rem 2rem', textAlign: 'center' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>⏰</div>
-                <div style={{ fontWeight: '700', marginBottom: '0.25rem' }}>No time entries yet</div>
-                <div style={{ fontSize: '0.85rem', color: '#555' }}>Clock in to start tracking your time.</div>
+                <div style={{ fontWeight: '700', marginBottom: '0.25rem' }}>{t.noTimeEntriesYet}</div>
+                <div style={{ fontSize: '0.85rem', color: '#555' }}>{t.clockInToStart}</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -789,7 +798,7 @@ export default function EmployeeDashboard() {
                         <div>
                           <span style={{ color: '#444', fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em', marginRight: '0.4rem' }}>OUT</span>
                           <span style={{ color: isActive ? '#22c55e' : '#aaa', fontWeight: isActive ? '700' : 'normal' }}>
-                            {isActive ? '● Active' : formatTime(entry.clock_out)}
+                            {isActive ? `● ${t.active}` : formatTime(entry.clock_out)}
                           </span>
                         </div>
                       </div>
@@ -810,17 +819,17 @@ export default function EmployeeDashboard() {
         {activeTab === 'earnings' && (
           <div>
             <div style={{ marginBottom: '1.5rem' }}>
-              <h2 style={{ margin: '0 0 0.2rem', fontSize: '1.25rem', fontWeight: '800' }}>Earnings</h2>
-              <div style={{ fontSize: '0.8rem', color: '#555' }}>Your pay summary</div>
+              <h2 style={{ margin: '0 0 0.2rem', fontSize: '1.25rem', fontWeight: '800' }}>{t.earnings}</h2>
+              <div style={{ fontSize: '0.8rem', color: '#555' }}>{t.yourEarnings}</div>
             </div>
 
             {/* Summary cards */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
               {[
-                { label: 'Total Hours', value: `${stats?.totalHours ?? 0}h`, color: '#22c55e', icon: '⏱' },
-                { label: 'Gross Earned', value: `$${(stats?.totalGross ?? 0).toFixed(2)}`, color: '#00d9ff', icon: '💵' },
-                { label: 'Tax Reserved 🐷', value: `$${(stats?.totalTaxReserved ?? 0).toFixed(2)}`, color: '#f59e0b', icon: '🏛' },
-                { label: 'Net Pay', value: `$${(stats?.totalNet ?? 0).toFixed(2)}`, color: '#a78bfa', icon: '✨' },
+                { label: t.totalHours, value: `${stats?.totalHours ?? 0}h`, color: '#22c55e', icon: '⏱' },
+                { label: t.grossEarned, value: `$${(stats?.totalGross ?? 0).toFixed(2)}`, color: '#00d9ff', icon: '💵' },
+                { label: t.taxReserved, value: `$${(stats?.totalTaxReserved ?? 0).toFixed(2)}`, color: '#f59e0b', icon: '🏛' },
+                { label: t.netPay, value: `$${(stats?.totalNet ?? 0).toFixed(2)}`, color: '#a78bfa', icon: '✨' },
               ].map(s => (
                 <div key={s.label} style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
@@ -836,8 +845,8 @@ export default function EmployeeDashboard() {
             <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', overflow: 'hidden', marginBottom: '1.5rem' }}>
               <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontWeight: '800', fontSize: '1rem' }}>🐷 Tax Reserve</div>
-                  <div style={{ fontSize: '0.78rem', color: '#555', marginTop: '0.15rem' }}>Set aside money each check for year-end taxes</div>
+                  <div style={{ fontWeight: '800', fontSize: '1rem' }}>{t.taxReserve}</div>
+                  <div style={{ fontSize: '0.78rem', color: '#555', marginTop: '0.15rem' }}>{t.taxReserveDesc}</div>
                 </div>
                 <button
                   onClick={() => setTaxEnabled(!taxEnabled)}
@@ -884,10 +893,10 @@ export default function EmployeeDashboard() {
             {/* Payroll records */}
             <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', overflow: 'hidden' }}>
               <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ fontWeight: '800', fontSize: '1rem' }}>Payroll Records</div>
+                <div style={{ fontWeight: '800', fontSize: '1rem' }}>{t.payrollRecords}</div>
               </div>
               {!payroll?.length ? (
-                <div style={{ padding: '2.5rem', textAlign: 'center', color: '#444', fontSize: '0.875rem' }}>No payroll records yet</div>
+                <div style={{ padding: '2.5rem', textAlign: 'center', color: '#444', fontSize: '0.875rem' }}>{t.noPayrollRecords}</div>
               ) : (
                 <div style={{ padding: '0.75rem' }}>
                   {payroll.map((pr: any, i: number) => {
@@ -901,21 +910,21 @@ export default function EmployeeDashboard() {
                       >
                         {/* Row 1: week + status */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                          <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#aaa' }}>Week of {pr.week_ending}</div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#aaa' }}>{t.weekOfLabel} {pr.week_ending}</div>
                           {statusBadge(pr.status)}
                         </div>
                         {/* Row 2: stats grid */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
                           <div>
-                            <div style={{ fontSize: '0.62rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Hours</div>
+                            <div style={{ fontSize: '0.62rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>{t.hours}</div>
                             <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#aaa' }}>{pr.total_hours}h</div>
                           </div>
                           <div>
-                            <div style={{ fontSize: '0.62rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Gross</div>
+                            <div style={{ fontSize: '0.62rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>{t.gross}</div>
                             <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#aaa' }}>${gross.toFixed(2)}</div>
                           </div>
                           <div>
-                            <div style={{ fontSize: '0.62rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Net Pay</div>
+                            <div style={{ fontSize: '0.62rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>{t.netPay}</div>
                             <div style={{ fontSize: '1rem', fontWeight: '900', color: '#22c55e' }}>${net.toFixed(2)}</div>
                           </div>
                         </div>

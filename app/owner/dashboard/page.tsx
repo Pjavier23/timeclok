@@ -3,12 +3,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
+import { useLang } from '../../contexts/LanguageContext'
+import { LanguageToggle } from '../../components/LanguageToggle'
 
 type Tab = 'overview' | 'employees' | 'payroll' | 'timeentries' | 'billing' | 'settings'
 
 export default function OwnerDashboard() {
   const router = useRouter()
   const supabase = createClient()
+  const { t } = useLang()
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -291,7 +294,7 @@ export default function OwnerDashboard() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f0f0f', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⏱</div>
-          <div style={{ color: '#555', fontSize: '0.9rem', letterSpacing: '0.05em' }}>LOADING DASHBOARD</div>
+          <div style={{ color: '#555', fontSize: '0.9rem', letterSpacing: '0.05em' }}>{t.loading.toUpperCase()}</div>
         </div>
       </div>
     )
@@ -311,9 +314,14 @@ export default function OwnerDashboard() {
       '1099': ['#f472b6', 'rgba(244,114,182,0.12)'],
     }
     const [color, bg] = map[status] || ['#888', 'rgba(255,255,255,0.08)']
+    const labelMap: Record<string, string> = {
+      pending: t.pending,
+      approved: t.approved,
+      paid: t.paid,
+    }
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.65rem', borderRadius: '100px', fontSize: '0.75rem', fontWeight: '700', color, background: bg }}>
-        {status}
+        {labelMap[status] ?? status}
       </span>
     )
   }
@@ -388,11 +396,11 @@ export default function OwnerDashboard() {
   const activityFeed = buildActivityFeed()
 
   const navItems: { id: Tab; icon: string; label: string }[] = [
-    { id: 'overview', icon: '▦', label: 'Overview' },
-    { id: 'employees', icon: '⬡', label: 'Employees' },
-    { id: 'timeentries', icon: '◷', label: 'Time Entries' },
-    { id: 'payroll', icon: '◈', label: 'Payroll' },
-    { id: 'billing', icon: '💳', label: 'Billing' },
+    { id: 'overview', icon: '▦', label: t.overview },
+    { id: 'employees', icon: '⬡', label: t.employees },
+    { id: 'timeentries', icon: '◷', label: t.timeEntries },
+    { id: 'payroll', icon: '◈', label: t.payroll },
+    { id: 'billing', icon: '💳', label: t.billing },
   ]
 
   const pendingPayrollCount = (payroll || []).filter((p: any) => p.status === 'pending').length
@@ -417,7 +425,7 @@ export default function OwnerDashboard() {
           {activeSessions.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', padding: '0.25rem 0.6rem', borderRadius: '100px', flexShrink: 0 }}>
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', display: 'block', flexShrink: 0 }} />
-              <span style={{ fontSize: '0.72rem', color: '#22c55e', fontWeight: '700' }}>{activeSessions.length} {isMobile ? '' : 'working now'}</span>
+              <span style={{ fontSize: '0.72rem', color: '#22c55e', fontWeight: '700' }}>{activeSessions.length} {isMobile ? '' : t.workingNow}</span>
             </div>
           )}
           {pendingPayrollCount > 0 && (
@@ -425,13 +433,14 @@ export default function OwnerDashboard() {
               ⚠ {pendingPayrollCount}
             </div>
           )}
+          <LanguageToggle />
           <button
             onClick={handleLogout}
             style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#666', padding: isMobile ? '0.35rem 0.5rem' : '0.4rem 0.875rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.8rem', flexShrink: 0 } as React.CSSProperties}
             onMouseEnter={e => { (e.currentTarget).style.borderColor = 'rgba(239,68,68,0.4)'; (e.currentTarget).style.color = '#ef4444' }}
             onMouseLeave={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget).style.color = '#666' }}
           >
-            {isMobile ? '↩' : 'Sign Out'}
+            {isMobile ? '↩' : t.signOut}
           </button>
         </div>
       </header>
@@ -475,12 +484,12 @@ export default function OwnerDashboard() {
             ))}
             <div style={{ flex: 1 }} />
             <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(0,217,255,0.05)', border: '1px solid rgba(0,217,255,0.12)', borderRadius: '10px' }}>
-              <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '700', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Grow your team</div>
+              <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: '700', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t.growYourTeam}</div>
               <button
                 onClick={() => { setShowInviteModal(true); setInviteResult(null) }}
                 style={{ width: '100%', padding: '0.5rem', background: '#00d9ff', color: '#000', border: 'none', borderRadius: '7px', fontWeight: '700', cursor: 'pointer', fontSize: '0.78rem' }}
               >
-                + Invite Employee
+                + {t.inviteEmployee}
               </button>
             </div>
           </nav>
@@ -513,7 +522,7 @@ export default function OwnerDashboard() {
                 </div>
               )}
               <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Dashboard</h1>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>{t.dashboard}</h1>
                 <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>
                   {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                 </p>
@@ -522,10 +531,10 @@ export default function OwnerDashboard() {
               {/* Stat cards — all clickable */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
                 {[
-                  { label: 'Total Employees', value: stats?.employeeCount ?? 0, icon: '👥', color: '#00d9ff', sub: 'Tap to view all', tab: 'employees' as Tab },
-                  { label: 'Working Now', value: activeSessions.length, icon: '🟢', color: '#22c55e', sub: 'Tap to see who', tab: 'timeentries' as Tab },
-                  { label: 'Hours This Week', value: `${stats?.weeklyHours ?? 0}h`, icon: '📊', color: '#a78bfa', sub: 'Tap to view entries', tab: 'timeentries' as Tab },
-                  { label: 'Pending Payroll', value: `$${(stats?.pendingPayrollTotal ?? 0).toFixed(0)}`, icon: '💰', color: '#f59e0b', sub: 'Tap to approve', tab: 'payroll' as Tab },
+                  { label: t.totalEmployees, value: stats?.employeeCount ?? 0, icon: '👥', color: '#00d9ff', sub: t.tapToViewAll, tab: 'employees' as Tab },
+                  { label: t.workingNow, value: activeSessions.length, icon: '🟢', color: '#22c55e', sub: t.tapToSeeWho, tab: 'timeentries' as Tab },
+                  { label: t.hoursThisWeek, value: `${stats?.weeklyHours ?? 0}h`, icon: '📊', color: '#a78bfa', sub: t.tapToViewEntries, tab: 'timeentries' as Tab },
+                  { label: t.pendingPayroll, value: `$${(stats?.pendingPayrollTotal ?? 0).toFixed(0)}`, icon: '💰', color: '#f59e0b', sub: t.tapToApprove, tab: 'payroll' as Tab },
                 ].map(s => (
                   <div
                     key={s.label}
@@ -551,14 +560,14 @@ export default function OwnerDashboard() {
                 <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', marginBottom: '2rem', overflow: 'hidden' }}>
                   <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontWeight: '800', fontSize: '1rem' }}>Live Attendance</div>
-                      <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>{activeSessions.length} of {employees.length} clocked in right now</div>
+                      <div style={{ fontWeight: '800', fontSize: '1rem' }}>{t.liveAttendance}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>{activeSessions.length} of {employees.length} {t.clockedIn.toLowerCase()} right now</div>
                     </div>
                     <button
                       onClick={() => { setShowInviteModal(true); setInviteResult(null) }}
                       style={{ background: '#00d9ff', color: '#000', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.8rem' }}
                     >
-                      + Invite
+                      + {t.inviteEmployee.split(' ')[0]}
                     </button>
                   </div>
                   <div style={{ padding: '1rem 1.5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem' }}>
@@ -582,7 +591,7 @@ export default function OwnerDashboard() {
                               {emp.users?.full_name || emp.users?.email?.split('@')[0] || 'Employee'}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: isClockedIn ? '#22c55e' : '#555', fontWeight: '600' }}>
-                              {isClockedIn ? `⏱ Since ${formatTime(active.clock_in)}` : 'Off clock'}
+                              {isClockedIn ? `⏱ ${t.since} ${formatTime(active.clock_in)}` : t.offClock}
                             </div>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem', flexShrink: 0 }}>
@@ -600,17 +609,17 @@ export default function OwnerDashboard() {
               <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', overflow: 'hidden' }}>
                 <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontWeight: '800', fontSize: '1rem' }}>Recent Activity</div>
-                    <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>Live stream of clock-ins, clock-outs & payroll</div>
+                    <div style={{ fontWeight: '800', fontSize: '1rem' }}>{t.recentActivity}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>Live stream of clock-ins, clock-outs &amp; payroll</div>
                   </div>
-                  <button onClick={() => setActiveTab('timeentries')} style={{ background: 'transparent', border: 'none', color: '#00d9ff', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '600', padding: '0.3rem 0.5rem' }}>View all →</button>
+                  <button onClick={() => setActiveTab('timeentries')} style={{ background: 'transparent', border: 'none', color: '#00d9ff', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '600', padding: '0.3rem 0.5rem' }}>{t.viewAll}</button>
                 </div>
 
                 {activityFeed.length === 0 ? (
                   <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>
                     <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>⏰</div>
-                    <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>No activity yet</div>
-                    <div style={{ fontSize: '0.8rem' }}>Invite employees to get started</div>
+                    <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>{t.noActivityYet}</div>
+                    <div style={{ fontSize: '0.8rem' }}>{t.inviteEmployeesMsg}</div>
                   </div>
                 ) : (
                   <div style={{ padding: '0.5rem 0' }}>
@@ -673,14 +682,14 @@ export default function OwnerDashboard() {
               )}
               <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Employees</h1>
+                  <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>{t.employees}</h1>
                   <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>{employees?.length ?? 0} team members</p>
                 </div>
                 <button
                   onClick={() => { setShowInviteModal(true); setInviteResult(null) }}
                   style={{ background: '#00d9ff', color: '#000', border: 'none', padding: '0.625rem 1.25rem', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                 >
-                  <span>+</span> Invite Employee
+                  <span>+</span> {t.inviteEmployee}
                 </button>
               </div>
 
@@ -688,17 +697,17 @@ export default function OwnerDashboard() {
                 {!employees?.length ? (
                   <div style={{ padding: '5rem 2rem', textAlign: 'center' }}>
                     <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👥</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>No employees yet</div>
-                    <div style={{ fontSize: '0.875rem', color: '#555', marginBottom: '1.5rem' }}>Invite your first team member to get started</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '0.5rem' }}>{t.noEmployeesYet}</div>
+                    <div style={{ fontSize: '0.875rem', color: '#555', marginBottom: '1.5rem' }}>{t.inviteFirstEmployee}</div>
                     <button onClick={() => setShowInviteModal(true)} style={{ background: '#00d9ff', color: '#000', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '0.875rem' }}>
-                      + Send First Invite
+                      {t.sendFirstInvite}
                     </button>
                   </div>
                 ) : (
                   <>
                     {!isMobile && (
                       <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr 0.5fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                        {['Employee', 'Email', 'Rate', 'Type', 'Since', ''].map(h => (
+                        {[t.employee_label, 'Email', t.rate, t.type, t.since, ''].map(h => (
                           <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
                         ))}
                       </div>
@@ -761,8 +770,8 @@ export default function OwnerDashboard() {
                           </div>
                           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                             {statusBadge(emp.employee_type || 'w2')}
-                            <span style={{ fontSize: '0.72rem', color: '#444' }}>Joined {formatDate(emp.created_at)}</span>
-                            {isActive && <span style={{ fontSize: '0.72rem', color: '#22c55e', fontWeight: '700' }}>● Working now</span>}
+                            <span style={{ fontSize: '0.72rem', color: '#444' }}>{t.joined} {formatDate(emp.created_at)}</span>
+                            {isActive && <span style={{ fontSize: '0.72rem', color: '#22c55e', fontWeight: '700' }}>● {t.workingNow}</span>}
                           </div>
                         </div>
                       ) : (
@@ -828,14 +837,14 @@ export default function OwnerDashboard() {
 
               <div style={{ marginTop: '1.5rem', background: '#1a1a1a', border: '1px solid rgba(0,217,255,0.12)', borderRadius: '14px', padding: '1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: '200px' }}>
-                  <div style={{ fontWeight: '700', fontSize: '0.875rem', marginBottom: '0.25rem' }}>🔗 Share Invite Link</div>
-                  <div style={{ fontSize: '0.8rem', color: '#555' }}>Anyone with this link can join your team directly.</div>
+                  <div style={{ fontWeight: '700', fontSize: '0.875rem', marginBottom: '0.25rem' }}>{t.shareInviteLink}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#555' }}>{t.inviteLinkDesc}</div>
                 </div>
                 <button
                   onClick={copyInviteLink}
                   style={{ background: copiedLink ? 'rgba(34,197,94,0.15)' : 'rgba(0,217,255,0.1)', border: `1px solid ${copiedLink ? 'rgba(34,197,94,0.3)' : 'rgba(0,217,255,0.25)'}`, color: copiedLink ? '#22c55e' : '#00d9ff', padding: '0.625rem 1.25rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.875rem', transition: 'all 0.2s', whiteSpace: 'nowrap' } as React.CSSProperties}
                 >
-                  {copiedLink ? '✓ Copied!' : '📋 Copy Link'}
+                  {copiedLink ? t.copied : t.copyLink}
                 </button>
               </div>
             </div>
@@ -846,7 +855,7 @@ export default function OwnerDashboard() {
             <div>
               <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
-                  <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Time Entries</h1>
+                  <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>{t.timeEntries}</h1>
                   <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>{timeEntries?.length ?? 0} total entries</p>
                 </div>
                 {/* Feature 4: CSV Export */}
@@ -857,19 +866,19 @@ export default function OwnerDashboard() {
                     onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.14)' }}
                     onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.08)' }}
                   >
-                    ⬇ Export CSV
+                    ⬇ {t.exportCSV}
                   </button>
                 )}
               </div>
 
               <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', overflow: 'hidden' }}>
                 {!timeEntries?.length ? (
-                  <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>No time entries yet</div>
+                  <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>{t.noTimeEntries}</div>
                 ) : (
                   <>
                     {!isMobile && (
                       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 2fr 1fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                        {['Employee', 'Date', 'In', 'Out', 'Hours', 'Location', 'Status'].map(h => (
+                        {[t.employee_label, t.date, t.in, t.out, t.hours, t.location, t.status].map(h => (
                           <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
                         ))}
                       </div>
@@ -936,7 +945,7 @@ export default function OwnerDashboard() {
             <div>
               <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
-                  <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Payroll</h1>
+                  <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>{t.payroll}</h1>
                   <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>{payroll?.length ?? 0} records · {pendingPayrollCount} pending</p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -949,7 +958,7 @@ export default function OwnerDashboard() {
                       onMouseEnter={e => { if (!bulkApproving) (e.currentTarget).style.background = 'rgba(34,197,94,0.18)' }}
                       onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(34,197,94,0.1)' }}
                     >
-                      {bulkApproving ? '⏳ Approving...' : `✓ Approve All Pending (${pendingPayrollCount})`}
+                      {bulkApproving ? '⏳ Approving...' : `✓ ${t.approveAllPending} (${pendingPayrollCount})`}
                     </button>
                   )}
                   {/* Feature 4: CSV Export */}
@@ -960,7 +969,7 @@ export default function OwnerDashboard() {
                       onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.14)' }}
                       onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(0,217,255,0.08)' }}
                     >
-                      ⬇ Export CSV
+                      ⬇ {t.exportCSV}
                     </button>
                   )}
                   {/* Accountant Payroll Report */}
@@ -975,7 +984,7 @@ export default function OwnerDashboard() {
                       onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(167,139,250,0.15)' }}
                       onMouseLeave={e => { (e.currentTarget).style.background = 'rgba(167,139,250,0.08)' }}
                     >
-                      📄 Accountant Report
+                      {t.accountantReport}
                     </button>
                   )}
                 </div>
@@ -992,20 +1001,20 @@ export default function OwnerDashboard() {
                 <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '12px', padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <span style={{ fontSize: '1.25rem' }}>⚠️</span>
                   <div>
-                    <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#f59e0b' }}>{pendingPayrollCount} payroll {pendingPayrollCount === 1 ? 'record' : 'records'} need your approval</div>
-                    <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.15rem' }}>Use "Approve All" above or approve individually below.</div>
+                    <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#f59e0b' }}>{pendingPayrollCount} {pendingPayrollCount === 1 ? t.needApproval : t.needsApproval}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.15rem' }}>{t.approveIndividually}</div>
                   </div>
                 </div>
               )}
 
               <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', overflow: 'hidden' }}>
                 {!payroll?.length ? (
-                  <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>No payroll records yet</div>
+                  <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>{t.noPayrollRecordsYet}</div>
                 ) : (
                   <>
                     {!isMobile && (
                       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr 1.5fr', padding: '0.875rem 1.5rem', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                        {['Employee', 'Week', 'Hours', 'Gross', 'Tax 🐷', 'Net Pay', 'Status', 'Action'].map(h => (
+                        {[t.employee_label, t.week, t.hours, t.gross, t.taxPig, t.netPayLabel, t.status, t.action].map(h => (
                           <div key={h} style={{ fontSize: '0.7rem', color: '#444', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
                         ))}
                       </div>
@@ -1018,15 +1027,15 @@ export default function OwnerDashboard() {
                       const actionBtn = pr.status === 'pending' ? (
                         <button onClick={() => handlePayrollAction(pr.id, 'approved')} disabled={payrollUpdating === pr.id}
                           style={{ padding: '0.375rem 0.875rem', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', borderRadius: '7px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', opacity: payrollUpdating === pr.id ? 0.5 : 1 }}>
-                          ✓ Approve
+                          ✓ {t.approve}
                         </button>
                       ) : pr.status === 'approved' ? (
                         <button onClick={() => handlePayrollAction(pr.id, 'paid')} disabled={payrollUpdating === pr.id}
                           style={{ padding: '0.375rem 0.875rem', background: 'rgba(0,217,255,0.12)', border: '1px solid rgba(0,217,255,0.3)', color: '#00d9ff', borderRadius: '7px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', opacity: payrollUpdating === pr.id ? 0.5 : 1 }}>
-                          💸 Mark Paid
+                          {t.markPaid}
                         </button>
                       ) : (
-                        <span style={{ fontSize: '0.78rem', color: '#22c55e' }}>✓ Paid</span>
+                        <span style={{ fontSize: '0.78rem', color: '#22c55e' }}>✓ {t.paid}</span>
                       )
                       return isMobile ? (
                         /* Mobile: card */
@@ -1034,14 +1043,14 @@ export default function OwnerDashboard() {
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
                             <div>
                               <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{empLabel}</div>
-                              <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>Week of {pr.week_ending} · {pr.total_hours}h</div>
+                              <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>{t.weekOfLabel} {pr.week_ending} · {pr.total_hours}h</div>
                             </div>
                             {statusBadge(pr.status)}
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                               <span style={{ fontSize: '1.1rem', fontWeight: '900', color: '#22c55e' }}>${net.toFixed(2)}</span>
-                              <span style={{ fontSize: '0.75rem', color: '#444', marginLeft: '0.5rem' }}>net · ${gross.toFixed(2)} gross</span>
+                              <span style={{ fontSize: '0.75rem', color: '#444', marginLeft: '0.5rem' }}>{t.netPay.toLowerCase()} · ${gross.toFixed(2)} {t.gross.toLowerCase()}</span>
                               {taxWithheld > 0 && <div style={{ fontSize: '0.72rem', color: '#f59e0b', marginTop: '0.15rem' }}>🐷 ${taxWithheld.toFixed(2)} reserved</div>}
                             </div>
                             {actionBtn}
@@ -1075,14 +1084,14 @@ export default function OwnerDashboard() {
           {activeTab === 'settings' && (
             <div>
               <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>Settings</h1>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>{t.settings}</h1>
                 <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>Company preferences and pay schedule</p>
               </div>
 
               {/* Company name */}
               <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.5rem', marginBottom: '1rem' }}>
-                <div style={{ fontSize: '0.78rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>Company Info</div>
-                <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '600', marginBottom: '0.5rem' }}>Company Name</label>
+                <div style={{ fontSize: '0.78rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>{t.companyInfo}</div>
+                <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '600', marginBottom: '0.5rem' }}>{t.companyName}</label>
                 <input
                   type="text"
                   value={settingsCompanyName}
@@ -1096,16 +1105,16 @@ export default function OwnerDashboard() {
 
               {/* Pay Schedule */}
               <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.5rem', marginBottom: '1rem' }}>
-                <div style={{ fontSize: '0.78rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.5rem' }}>Pay Schedule</div>
+                <div style={{ fontSize: '0.78rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.5rem' }}>{t.paySchedule}</div>
                 <div style={{ fontSize: '0.8rem', color: '#444', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-                  How often do your employees get paid? This affects payroll periods.
+                  {t.payScheduleDesc}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '0.75rem' }}>
                   {[
-                    { value: 'weekly', label: 'Weekly', desc: 'Every 7 days', icon: '📅' },
-                    { value: 'biweekly', label: 'Bi-Weekly', desc: 'Every 2 weeks', icon: '📆' },
-                    { value: 'semimonthly', label: 'Semi-Monthly', desc: '1st & 15th', icon: '🗓' },
-                    { value: 'monthly', label: 'Monthly', desc: 'Once a month', icon: '📋' },
+                    { value: 'weekly', label: t.weekly, desc: 'Every 7 days', icon: '📅' },
+                    { value: 'biweekly', label: t.biWeekly, desc: 'Every 2 weeks', icon: '📆' },
+                    { value: 'semimonthly', label: t.semiMonthly, desc: '1st & 15th', icon: '🗓' },
+                    { value: 'monthly', label: t.monthly, desc: 'Once a month', icon: '📋' },
                   ].map(opt => (
                     <button
                       key={opt.value}
@@ -1134,7 +1143,7 @@ export default function OwnerDashboard() {
                 disabled={settingsSaving}
                 style={{ padding: '0.875rem 2rem', background: settingsSaved ? 'rgba(34,197,94,0.15)' : '#00d9ff', border: settingsSaved ? '1px solid rgba(34,197,94,0.3)' : 'none', color: settingsSaved ? '#22c55e' : '#000', borderRadius: '10px', fontWeight: '800', cursor: settingsSaving ? 'not-allowed' : 'pointer', fontSize: '0.95rem', opacity: settingsSaving ? 0.6 : 1 } as React.CSSProperties}
               >
-                {settingsSaved ? '✓ Saved!' : settingsSaving ? 'Saving...' : 'Save Settings'}
+                {settingsSaved ? `✓ ${t.saved}` : settingsSaving ? `${t.loading}` : t.saveSettings}
               </button>
             </div>
           )}
@@ -1196,9 +1205,9 @@ export default function OwnerDashboard() {
             {!inviteResult ? (
               <>
                 <div style={{ marginBottom: '2rem' }}>
-                  <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.4rem', fontWeight: '900', letterSpacing: '-0.02em' }}>Invite an Employee</h3>
+                  <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.4rem', fontWeight: '900', letterSpacing: '-0.02em' }}>{t.inviteEmployee}</h3>
                   <p style={{ margin: 0, fontSize: '0.875rem', color: '#666', lineHeight: 1.6 }}>
-                    {inviteMethod === 'sms' ? "They'll get a text message with a link to create their account." : "They'll get an email with a link to create their account and join your team."}
+                    {inviteMethod === 'sms' ? t.inviteModalTitleSms : t.inviteModalTitleEmail}
                   </p>
                 </div>
 
@@ -1218,7 +1227,7 @@ export default function OwnerDashboard() {
                 {inviteMethod === 'email' ? (
                   <div style={{ marginBottom: '1.25rem' }}>
                     <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
-                      Email Address *
+                      {t.emailAddress}
                     </label>
                     <input
                       type="email"
@@ -1235,7 +1244,7 @@ export default function OwnerDashboard() {
                 ) : (
                   <div style={{ marginBottom: '1.25rem' }}>
                     <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
-                      Phone Number *
+                      {t.phoneNumber}
                     </label>
                     <input
                       type="tel"
@@ -1248,13 +1257,13 @@ export default function OwnerDashboard() {
                       onFocus={e => { e.target.style.borderColor = 'rgba(0,217,255,0.4)' }}
                       onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.12)' }}
                     />
-                    <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.4rem' }}>Include country code (e.g. +1 for US)</div>
+                    <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.4rem' }}>{t.includeCountryCode}</div>
                   </div>
                 )}
 
                 <div style={{ marginBottom: '2rem' }}>
                   <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
-                    Name (optional)
+                    {t.nameOptional}
                   </label>
                   <input
                     type="text"
@@ -1273,7 +1282,7 @@ export default function OwnerDashboard() {
                     disabled={inviteSending || (inviteMethod === 'email' ? !inviteEmail : !invitePhone)}
                     style={{ flex: 1, padding: '0.9rem', background: (inviteSending || (inviteMethod === 'email' ? !inviteEmail : !invitePhone)) ? 'rgba(0,217,255,0.3)' : '#00d9ff', color: '#000', border: 'none', borderRadius: '10px', fontWeight: '800', fontSize: '0.95rem', cursor: (inviteSending || (inviteMethod === 'email' ? !inviteEmail : !invitePhone)) ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
                   >
-                    {inviteSending ? 'Sending...' : inviteMethod === 'email' ? '✉️ Send Invite' : '📱 Send SMS'}
+                    {inviteSending ? t.loading : inviteMethod === 'email' ? `✉️ ${t.sendInviteBtn}` : `📱 ${t.sendInviteBtn}`}
                   </button>
                   <button
                     onClick={resetInviteModal}
@@ -1281,7 +1290,7 @@ export default function OwnerDashboard() {
                     onMouseEnter={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.2)'; (e.currentTarget).style.color = '#999' }}
                     onMouseLeave={e => { (e.currentTarget).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget).style.color = '#666' }}
                   >
-                    Cancel
+                    {t.cancelBtn}
                   </button>
                 </div>
               </>
@@ -1319,7 +1328,7 @@ export default function OwnerDashboard() {
                         }}
                         style={{ padding: '0.6rem 0.5rem', background: copiedLink ? 'rgba(34,197,94,0.15)' : 'rgba(0,217,255,0.12)', border: `1px solid ${copiedLink ? 'rgba(34,197,94,0.35)' : 'rgba(0,217,255,0.3)'}`, color: copiedLink ? '#22c55e' : '#00d9ff', borderRadius: '8px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: '700', transition: 'all 0.2s' } as React.CSSProperties}
                       >
-                        {copiedLink ? '✓ Copied!' : '📋 Copy Link'}
+                        {copiedLink ? t.copied : t.copyLink}
                       </button>
                       <a
                         href={`https://wa.me/?text=${encodeURIComponent(`You've been invited to join our team on TimeClok! Create your account here: ${inviteResult.inviteUrl}`)}`}
@@ -1344,13 +1353,13 @@ export default function OwnerDashboard() {
                     onClick={() => { setInviteEmail(''); setInviteName(''); setInvitePhone(''); setInviteResult(null) }}
                     style={{ flex: 1, padding: '0.875rem', background: '#00d9ff', color: '#000', border: 'none', borderRadius: '10px', fontWeight: '800', cursor: 'pointer', fontSize: '0.9rem' }}
                   >
-                    Invite Another
+                    {t.inviteAnotherBtn}
                   </button>
                   <button
                     onClick={resetInviteModal}
                     style={{ padding: '0.875rem 1.25rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#666', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}
                   >
-                    Done
+                    {t.done}
                   </button>
                 </div>
               </>

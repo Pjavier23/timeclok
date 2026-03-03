@@ -3,67 +3,21 @@
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
-
-const T = {
-  en: {
-    title: 'TimeClok',
-    subtitle: 'Employee Time Tracking',
-    employer: 'Employer',
-    employee: 'Employee',
-    emailLabel: 'Email',
-    emailPlaceholder: 'you@company.com',
-    passwordLabel: 'Password',
-    forgotPassword: 'Forgot password?',
-    signIn: 'Sign In →',
-    signingIn: 'Signing in...',
-    noAccount: "Don't have an account?",
-    signUp: 'Sign up',
-    demoTitle: '🎯 Demo Accounts',
-    demoOwner: 'Employer',
-    demoEmployee: 'Employee',
-    clickToFill: 'Click email to auto-fill',
-    employerWelcome: 'Welcome back, boss 👔',
-    employeeWelcome: 'Welcome back 👋',
-    employerSub: 'Manage your team & payroll',
-    employeeSub: 'Clock in and track your earnings',
-  },
-  es: {
-    title: 'TimeClok',
-    subtitle: 'Control de Tiempo para Empleados',
-    employer: 'Empleador',
-    employee: 'Empleado',
-    emailLabel: 'Correo Electrónico',
-    emailPlaceholder: 'tu@empresa.com',
-    passwordLabel: 'Contraseña',
-    forgotPassword: '¿Olvidaste tu contraseña?',
-    signIn: 'Iniciar Sesión →',
-    signingIn: 'Entrando...',
-    noAccount: '¿No tienes cuenta?',
-    signUp: 'Regístrate',
-    demoTitle: '🎯 Cuentas de Prueba',
-    demoOwner: 'Empleador',
-    demoEmployee: 'Empleado',
-    clickToFill: 'Toca el correo para rellenar',
-    employerWelcome: 'Bienvenido, jefe 👔',
-    employeeWelcome: 'Bienvenido de vuelta 👋',
-    employerSub: 'Gestiona tu equipo y nómina',
-    employeeSub: 'Registra tu entrada y ganancias',
-  },
-}
+import { useLang } from '../../contexts/LanguageContext'
+import { LanguageToggle } from '../../components/LanguageToggle'
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
 
-  const [lang, setLang] = useState<'en' | 'es'>('en')
+  const { t } = useLang()
   const [role, setRole] = useState<'employer' | 'employee'>('employer')
   const [email, setEmail] = useState(searchParams.get('email') || '')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const t = T[lang]
   const isEmployer = role === 'employer'
   const accent = isEmployer ? '#00d9ff' : '#22c55e'
 
@@ -87,8 +41,8 @@ function LoginForm() {
       } else {
         router.push('/owner/dashboard')
       }
-    } catch (err: any) {
-      setError(err.message || 'Login failed')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Login failed')
       setLoading(false)
     }
   }
@@ -104,14 +58,7 @@ function LoginForm() {
 
         {/* Language toggle */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.06)', borderRadius: '8px', padding: '3px', gap: '2px' }}>
-            {(['en', 'es'] as const).map(l => (
-              <button key={l} onClick={() => setLang(l)}
-                style={{ padding: '0.3rem 0.75rem', borderRadius: '6px', border: 'none', background: lang === l ? '#fff' : 'transparent', color: lang === l ? '#000' : '#666', fontWeight: '700', fontSize: '0.78rem', cursor: 'pointer', transition: 'all 0.15s' }}>
-                {l === 'en' ? '🇺🇸 EN' : '🇪🇸 ES'}
-              </button>
-            ))}
-          </div>
+          <LanguageToggle />
         </div>
 
         {/* Card */}
@@ -131,7 +78,7 @@ function LoginForm() {
             {/* Logo + welcome */}
             <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
               <div style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>⏱</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: '900', color: accent, marginBottom: '0.25rem' }}>{t.title}</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: '900', color: accent, marginBottom: '0.25rem' }}>TimeClok</div>
               <div style={{ fontSize: '0.85rem', color: '#555' }}>
                 {isEmployer ? t.employerSub : t.employeeSub}
               </div>
@@ -185,8 +132,8 @@ function LoginForm() {
               )}
 
               <button type="submit" disabled={loading}
-                style={{ width: '100%', padding: '0.9rem', background: loading ? `${accent}55` : accent, color: isEmployer ? '#000' : '#000', border: 'none', borderRadius: '10px', fontWeight: '800', fontSize: '0.95rem', cursor: loading ? 'not-allowed' : 'pointer', transition: 'opacity 0.2s' }}>
-                {loading ? t.signingIn : t.signIn}
+                style={{ width: '100%', padding: '0.9rem', background: loading ? `${accent}55` : accent, color: '#000', border: 'none', borderRadius: '10px', fontWeight: '800', fontSize: '0.95rem', cursor: loading ? 'not-allowed' : 'pointer', transition: 'opacity 0.2s' }}>
+                {loading ? t.signingIn : t.signInBtn}
               </button>
             </form>
 
