@@ -93,17 +93,22 @@ export default function EmployeesPage() {
         throw new Error(data.error || 'Failed to send invite')
       }
 
-      setSuccessMessage(data.message || (
+      const msg = data.message || (
         sendMethod === 'email'
           ? `Invite sent to ${formData.email}`
           : `Invite SMS sent to ${formData.phoneNumber}`
-      ))
+      )
+      // If email/SMS not sent, show the invite link so owner can share manually
+      const linkMsg = data.inviteUrl && !data.emailSent && !data.smsSent
+        ? `${msg}\n\n🔗 Share this link: ${data.inviteUrl}`
+        : msg
+      setSuccessMessage(linkMsg)
 
       setFormData({ email: '', phoneNumber: '', hourlyRate: '25' })
       setTimeout(() => {
         setShowAddModal(false)
         setSuccessMessage('')
-      }, 2500)
+      }, 5000)
     } catch (err: any) {
       setError(err.message)
     } finally {

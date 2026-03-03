@@ -223,34 +223,42 @@ export default function OwnerDashboard() {
   }
 
   const handleSendInvite = async () => {
-    if (!inviteEmail) return
+    // Validate based on selected method
+    if (inviteMethod === 'email' && !inviteEmail) return
+    if (inviteMethod === 'sms' && !invitePhone) return
+
     setInviteSending(true)
     setInviteResult(null)
 
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
+    if (!session) { setInviteSending(false); return }
 
-    const res = await fetch('/api/invite', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        method: inviteMethod,
-        email: inviteMethod === 'email' ? inviteEmail : undefined,
-        phone: inviteMethod === 'sms' ? invitePhone : undefined,
-        name: inviteName,
-      }),
-    })
+    try {
+      const res = await fetch('/api/invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          method: inviteMethod,
+          email: inviteMethod === 'email' ? inviteEmail : undefined,
+          phone: inviteMethod === 'sms' ? invitePhone : undefined,
+          name: inviteName,
+        }),
+      })
 
-    const json = await res.json()
-    setInviteResult(json)
-    setInviteSending(false)
-
-    if (json.success) {
-      await fetchData()
+      const json = await res.json()
+      if (!res.ok && !json.success) {
+        setInviteResult({ success: false, inviteUrl: '', message: json.error || 'Something went wrong. Please try again.' })
+      } else {
+        setInviteResult(json)
+        if (json.success) await fetchData()
+      }
+    } catch (e: any) {
+      setInviteResult({ success: false, inviteUrl: '', message: 'Network error — check your connection and try again.' })
     }
+    setInviteSending(false)
   }
 
   const handleSaveSettings = async () => {
@@ -1190,7 +1198,7 @@ export default function OwnerDashboard() {
                 <div style={{ marginBottom: '2rem' }}>
                   <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.4rem', fontWeight: '900', letterSpacing: '-0.02em' }}>Invite an Employee</h3>
                   <p style={{ margin: 0, fontSize: '0.875rem', color: '#666', lineHeight: 1.6 }}>
-                    They'll get an email with a magic link to create their account and join your team.
+                    {inviteMethod === 'sms' ? "They'll get a text message with a link to create their account." : "They'll get an email with a link to create their account and join your team."}
                   </p>
                 </div>
 
