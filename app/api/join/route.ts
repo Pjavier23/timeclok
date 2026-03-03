@@ -2,7 +2,7 @@ import { createServiceClient } from '../../lib/supabase-server'
 
 export async function POST(request: Request) {
   try {
-    const { email, password, companyId, hourlyRate = 25 } = await request.json()
+    const { email, password, companyId, fullName, hourlyRate = 25 } = await request.json()
 
     if (!email || !password || !companyId) {
       return Response.json({ error: 'Email, password, and company ID are required' }, { status: 400 })
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     await supabase.from('users').insert([{
       id: userId,
       email,
-      full_name: email.split('@')[0],
+      full_name: fullName || email.split('@')[0],
       user_type: 'employee',
       company_id: companyId,
     }])
