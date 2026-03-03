@@ -47,6 +47,10 @@ export default function OwnerDashboard() {
 
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showAllActivity, setShowAllActivity] = useState(false)
+  const [activityEmployeeFilter, setActivityEmployeeFilter] = useState<string>('all')
+  const [payrollEmployeeFilter, setPayrollEmployeeFilter] = useState<string>('all')
+  const [payrollDateStart, setPayrollDateStart] = useState<string>('')
+  const [payrollDateEnd, setPayrollDateEnd] = useState<string>('')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteName, setInviteName] = useState('')
   const [invitePhone, setInvitePhone] = useState('')
@@ -394,7 +398,15 @@ export default function OwnerDashboard() {
     return items.slice(0, 12)
   }
 
-  const activityFeed = buildActivityFeed()
+  const rawActivityFeed = buildActivityFeed()
+  const activityFeed = activityEmployeeFilter === 'all'
+    ? rawActivityFeed
+    : rawActivityFeed.filter(item => {
+        const emp = employees?.find((e: any) =>
+          (e.users?.full_name || e.users?.email?.split('@')[0] || '') === item.name
+        )
+        return emp?.id === activityEmployeeFilter
+      })
 
   const navItems: { id: Tab; icon: string; label: string }[] = [
     { id: 'overview', icon: '▦', label: t.overview },
@@ -610,12 +622,29 @@ export default function OwnerDashboard() {
 
               {/* Feature 6: Rich Activity Feed */}
               <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', overflow: 'hidden' }}>
-                <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: '800', fontSize: '1rem' }}>{t.recentActivity}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>Live stream of clock-ins, clock-outs &amp; payroll</div>
+                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: employees?.length > 0 ? '0.75rem' : 0 }}>
+                    <div>
+                      <div style={{ fontWeight: '800', fontSize: '1rem' }}>{t.recentActivity}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.1rem' }}>Clock-ins, clock-outs &amp; payroll</div>
+                    </div>
+                    <button onClick={() => setActiveTab('timeentries')} style={{ background: 'transparent', border: 'none', color: '#00d9ff', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '600', padding: '0.3rem 0.5rem' }}>{t.viewAll}</button>
                   </div>
-                  <button onClick={() => setActiveTab('timeentries')} style={{ background: 'transparent', border: 'none', color: '#00d9ff', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '600', padding: '0.3rem 0.5rem' }}>{t.viewAll}</button>
+                  {/* Employee filter */}
+                  {employees?.length > 0 && (
+                    <select
+                      value={activityEmployeeFilter}
+                      onChange={e => { setActivityEmployeeFilter(e.target.value); setShowAllActivity(false) }}
+                      style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '0.5rem 0.75rem', color: activityEmployeeFilter === 'all' ? '#666' : '#fff', fontSize: '0.82rem', outline: 'none', cursor: 'pointer' } as React.CSSProperties}
+                    >
+                      <option value="all">👥 All Employees</option>
+                      {employees.map((emp: any) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.users?.full_name || emp.users?.email?.split('@')[0] || 'Employee'}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 {activityFeed.length === 0 ? (
@@ -906,7 +935,17 @@ export default function OwnerDashboard() {
               <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                   <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>{t.payroll}</h1>
-                  <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>{payroll?.length ?? 0} records · {pendingPayrollCount} pending</p>
+                  <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>
+                    {(() => {
+                      const filtered = (payroll || []).filter((pr: any) => {
+                        if (payrollEmployeeFilter !== 'all' && pr.employee_id !== payrollEmployeeFilter) return false
+                        if (payrollDateStart && pr.week_ending < payrollDateStart) return false
+                        if (payrollDateEnd && pr.week_ending > payrollDateEnd) return false
+                        return true
+                      })
+                      return `${filtered.length} record${filtered.length !== 1 ? 's' : ''}${filtered.length !== payroll?.length ? ` (filtered from ${payroll?.length})` : ''} · ${pendingPayrollCount} pending`
+                    })()}
+                  </p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
                   {/* Feature 3: Bulk Approve */}
@@ -967,7 +1006,62 @@ export default function OwnerDashboard() {
                 </div>
               )}
 
+              {/* Filters: Employee + Date Range */}
+              <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1rem 1.25rem', marginBottom: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>Filter:</span>
+                {/* Employee filter */}
+                <select
+                  value={payrollEmployeeFilter}
+                  onChange={e => setPayrollEmployeeFilter(e.target.value)}
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '0.45rem 0.75rem', color: payrollEmployeeFilter === 'all' ? '#666' : '#fff', fontSize: '0.82rem', outline: 'none', cursor: 'pointer', flexShrink: 0 } as React.CSSProperties}
+                >
+                  <option value="all">👥 All Employees</option>
+                  {employees?.map((emp: any) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.users?.full_name || emp.users?.email?.split('@')[0] || 'Employee'}
+                    </option>
+                  ))}
+                </select>
+                {/* Date range */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '240px', flexWrap: 'wrap' }}>
+                  <input
+                    type="date"
+                    value={payrollDateStart}
+                    onChange={e => setPayrollDateStart(e.target.value)}
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '0.45rem 0.75rem', color: payrollDateStart ? '#fff' : '#555', fontSize: '0.82rem', outline: 'none', cursor: 'pointer' } as React.CSSProperties}
+                  />
+                  <span style={{ color: '#444', fontSize: '0.8rem' }}>→</span>
+                  <input
+                    type="date"
+                    value={payrollDateEnd}
+                    onChange={e => setPayrollDateEnd(e.target.value)}
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '0.45rem 0.75rem', color: payrollDateEnd ? '#fff' : '#555', fontSize: '0.82rem', outline: 'none', cursor: 'pointer' } as React.CSSProperties}
+                  />
+                  {(payrollDateStart || payrollDateEnd || payrollEmployeeFilter !== 'all') && (
+                    <button
+                      onClick={() => { setPayrollDateStart(''); setPayrollDateEnd(''); setPayrollEmployeeFilter('all') }}
+                      style={{ background: 'transparent', border: 'none', color: '#555', cursor: 'pointer', fontSize: '0.8rem', padding: '0.25rem 0.5rem', borderRadius: '6px' }}
+                    >
+                      ✕ Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', overflow: 'hidden' }}>
+                {(() => {
+                  const filteredPayroll = (payroll || []).filter((pr: any) => {
+                    if (payrollEmployeeFilter !== 'all' && pr.employee_id !== payrollEmployeeFilter) return false
+                    if (payrollDateStart && pr.week_ending < payrollDateStart) return false
+                    if (payrollDateEnd && pr.week_ending > payrollDateEnd) return false
+                    return true
+                  })
+                  return !filteredPayroll.length ? (
+                    <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>
+                      {payroll?.length ? 'No records match your filters.' : t.noPayrollRecordsYet}
+                    </div>
+                  ) : null
+                })()}
                 {!payroll?.length ? (
                   <div style={{ padding: '3rem', textAlign: 'center', color: '#444' }}>{t.noPayrollRecordsYet}</div>
                 ) : (
@@ -979,7 +1073,12 @@ export default function OwnerDashboard() {
                         ))}
                       </div>
                     )}
-                    {payroll.map((pr: any, i: number) => {
+                    {payroll.filter((pr: any) => {
+                      if (payrollEmployeeFilter !== 'all' && pr.employee_id !== payrollEmployeeFilter) return false
+                      if (payrollDateStart && pr.week_ending < payrollDateStart) return false
+                      if (payrollDateEnd && pr.week_ending > payrollDateEnd) return false
+                      return true
+                    }).map((pr: any, i: number) => {
                       const gross = pr.total_amount || 0
                       const taxWithheld = pr.tax_withheld || 0
                       const net = pr.net_amount ?? gross
