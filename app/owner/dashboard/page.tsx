@@ -46,6 +46,7 @@ export default function OwnerDashboard() {
   const [rateSaving, setRateSaving] = useState(false)
 
   const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showAllActivity, setShowAllActivity] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteName, setInviteName] = useState('')
   const [invitePhone, setInvitePhone] = useState('')
@@ -625,7 +626,8 @@ export default function OwnerDashboard() {
                   </div>
                 ) : (
                   <div style={{ padding: '0.5rem 0' }}>
-                    {activityFeed.map((item, i) => {
+                    {(showAllActivity ? activityFeed : activityFeed.slice(0, 5)).map((item, i) => {
+                      const visibleFeed = showAllActivity ? activityFeed : activityFeed.slice(0, 5)
                       const config = {
                         clock_in: { dot: '#22c55e', icon: '🟢', label: 'clocked in', dotColor: 'rgba(34,197,94,0.15)' },
                         clock_out: { dot: '#ef4444', icon: '🔴', label: 'clocked out', dotColor: 'rgba(239,68,68,0.15)' },
@@ -635,28 +637,36 @@ export default function OwnerDashboard() {
                       return (
                         <div
                           key={i}
-                          style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1.5rem', borderBottom: i < activityFeed.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none', transition: 'background 0.15s' }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1.5rem', borderBottom: i < visibleFeed.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none', transition: 'background 0.15s' }}
                           onMouseEnter={e => { (e.currentTarget).style.background = 'rgba(255,255,255,0.02)' }}
                           onMouseLeave={e => { (e.currentTarget).style.background = 'transparent' }}
                         >
-                          {/* Dot indicator */}
                           <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: config.dotColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', flexShrink: 0 }}>
                             {config.icon}
                           </div>
-                          {/* Content */}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: '0.875rem', lineHeight: 1.4 }}>
                               <span style={{ fontWeight: '700', color: '#fff' }}>{item.name}</span>
                               <span style={{ color: '#555', marginLeft: '0.35rem' }}>{item.detail}</span>
                             </div>
                           </div>
-                          {/* Timestamp */}
                           <div style={{ fontSize: '0.75rem', color: '#444', flexShrink: 0, whiteSpace: 'nowrap' } as React.CSSProperties}>
                             {item.time}
                           </div>
                         </div>
                       )
                     })}
+                    {/* View All / Show Less toggle */}
+                    {activityFeed.length > 5 && (
+                      <div style={{ padding: '0.75rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                        <button
+                          onClick={() => setShowAllActivity(v => !v)}
+                          style={{ background: 'transparent', border: 'none', color: '#00d9ff', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', padding: 0 }}
+                        >
+                          {showAllActivity ? `▲ Show Less` : `▼ View All (${activityFeed.length - 5} more)`}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
