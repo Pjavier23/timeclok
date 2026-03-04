@@ -1,6 +1,6 @@
 -- Migration 004: Fix RLS Security Advisor Errors
 -- Run in Supabase SQL Editor
--- Fixes: Policy Exists RLS Disabled + RLS Disabled in Public for companies, project_assignments, schedules
+-- Fixes: Policy Exists RLS Disabled + RLS Disabled in Public for companies, project_assignments, schedules, projects
 
 -- ============================================================
 -- 1. public.companies — Enable RLS (policies already exist via schema.sql)
@@ -82,7 +82,27 @@ BEGIN
 END $$;
 
 -- ============================================================
--- 3. public.schedules — Ensure RLS is enabled (migration 003 may have used bare table name)
+-- 3. public.projects — RLS enabled but no policies existed
+-- ============================================================
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'projects' AND policyname = 'Owners manage projects') THEN
+    CREATE POLICY "Owners manage projects" ON public.projects
+      FOR ALL USING (
+        company_id IN (SELECT id FROM public.companies WHERE owner_id = auth.uid())
+      );
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'projects' AND policyname = 'Employees view company projects') THEN
+    CREATE POLICY "Employees view company projects" ON public.projects
+      FOR SELECT USING (
+        company_id IN (SELECT company_id FROM public.employees WHERE user_id = auth.uid())
+      );
+  END IF;
+END $$;
+
+-- ============================================================
+-- 4. public.schedules — Ensure RLS is enabled (migration 003 may have used bare table name)
 -- ============================================================
 ALTER TABLE public.schedules ENABLE ROW LEVEL SECURITY;
 
