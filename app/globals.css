@@ -28,6 +28,11 @@ input, select, textarea {
   color: inherit;
 }
 
+/* Hide scrollbar on tab bars but keep scroll functional */
+.tabs-scrollable::-webkit-scrollbar {
+  display: none;
+}
+
 /* Animations */
 @keyframes slideIn {
   from {

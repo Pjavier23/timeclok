@@ -539,13 +539,13 @@ export default function EmployeeDashboard() {
         )}
 
         {/* ── TABS ── */}
-        <div style={{ display: 'flex', background: '#1a1a1a', borderRadius: '12px', padding: '0.25rem', marginBottom: '2rem', gap: '0.25rem' }}>
+        <div className="tabs-scrollable" style={{ display: 'flex', background: '#1a1a1a', borderRadius: '12px', padding: '0.25rem', marginBottom: '2rem', gap: '0.25rem', overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               style={{
-                flex: 1,
+                flex: isMobile ? '0 0 auto' : 1,
                 padding: '0.625rem 0.75rem',
                 borderRadius: '9px',
                 border: 'none',
@@ -559,6 +559,7 @@ export default function EmployeeDashboard() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.4rem',
+                whiteSpace: 'nowrap',
               } as React.CSSProperties}
             >
               <span>{tab.icon}</span>
