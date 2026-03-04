@@ -1039,7 +1039,7 @@ export default function EmployeeDashboard() {
                               : pEntries.map(entryCard)
                             }
                             {pr.tax_withheld > 0 && (
-                              <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: '#f59e0b' }}>🏛 Tax reserved: ${pr.tax_withheld.toFixed(2)}</div>
+                              <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: '#f59e0b' }}>{t.taxReservedLine.replace('{{amount}}', pr.tax_withheld.toFixed(2))}</div>
                             )}
                           </div>
                         )}
@@ -1101,8 +1101,8 @@ export default function EmployeeDashboard() {
               <div style={{ padding: '1.25rem 1.5rem' }}>
                 <div style={{ color: taxEnabled ? '#ccc' : '#555', fontSize: '0.875rem', marginBottom: '1.25rem', lineHeight: 1.6 }}>
                   {taxEnabled
-                    ? '✅ Active — $' + taxAmount + ' will be set aside from each approved paycheck.'
-                    : '💡 1099 contractors often owe 25–30% at year-end. Reserve a little each check to stay ahead.'}
+                    ? t.taxReserveActive.replace('{{amount}}', String(taxAmount))
+                    : t.taxReserveInactive}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden' }}>
@@ -1115,19 +1115,19 @@ export default function EmployeeDashboard() {
                       onChange={(e) => setTaxAmount(Number(e.target.value))}
                       style={{ background: 'transparent', border: 'none', color: '#fff', padding: '0.6rem 0.875rem', width: '80px', fontSize: '0.95rem', outline: 'none', fontWeight: '700' }}
                     />
-                    <span style={{ padding: '0.6rem 0.875rem', color: '#555', borderLeft: '1px solid rgba(255,255,255,0.08)', fontSize: '0.8rem' }}>/check</span>
+                    <span style={{ padding: '0.6rem 0.875rem', color: '#555', borderLeft: '1px solid rgba(255,255,255,0.08)', fontSize: '0.8rem' }}>{t.taxReservePerCheck}</span>
                   </div>
                   <button
                     onClick={handleSaveTaxSettings}
                     disabled={taxSaving}
                     style={{ padding: '0.6rem 1.25rem', background: taxSaved ? 'rgba(34,197,94,0.15)' : 'rgba(0,217,255,0.1)', border: `1px solid ${taxSaved ? 'rgba(34,197,94,0.3)' : 'rgba(0,217,255,0.25)'}`, color: taxSaved ? '#22c55e' : '#00d9ff', borderRadius: '10px', cursor: taxSaving ? 'not-allowed' : 'pointer', fontWeight: '700', fontSize: '0.875rem', transition: 'all 0.2s' }}
                   >
-                    {taxSaved ? '✓ Saved!' : taxSaving ? 'Saving...' : 'Save'}
+                    {taxSaved ? `✓ ${t.saved}` : taxSaving ? '...' : t.save}
                   </button>
                 </div>
                 {taxMigrationNeeded && (
                   <div style={{ marginTop: '1rem', padding: '0.875rem', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '8px', fontSize: '0.8rem', color: '#ef4444' }}>
-                    ⚙️ Feature coming soon — your admin is enabling this shortly.
+                    {t.taxReserveFeatureSoon}
                   </div>
                 )}
               </div>
@@ -1234,7 +1234,7 @@ export default function EmployeeDashboard() {
                             <div style={{ fontSize: '1rem', fontWeight: '900', color: '#22c55e' }}>${net.toFixed(2)}</div>
                           </div>
                         </div>
-                        {taxWithheld > 0 && <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: '#f59e0b' }}>🐷 ${taxWithheld.toFixed(2)} tax reserved</div>}
+                        {taxWithheld > 0 && <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: '#f59e0b' }}>{t.taxReservedLine.replace('{{amount}}', taxWithheld.toFixed(2))}</div>}
                       </div>
                     )
                   })}

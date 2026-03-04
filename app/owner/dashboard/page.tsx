@@ -1178,7 +1178,7 @@ export default function OwnerDashboard() {
                             <div>
                               <span style={{ fontSize: '1.1rem', fontWeight: '900', color: '#22c55e' }}>${net.toFixed(2)}</span>
                               <span style={{ fontSize: '0.75rem', color: '#444', marginLeft: '0.5rem' }}>{t.netPay.toLowerCase()} · ${gross.toFixed(2)} {t.gross.toLowerCase()}</span>
-                              {taxWithheld > 0 && <div style={{ fontSize: '0.72rem', color: '#f59e0b', marginTop: '0.15rem' }}>🐷 ${taxWithheld.toFixed(2)} reserved</div>}
+                              {taxWithheld > 0 && <div style={{ fontSize: '0.72rem', color: '#f59e0b', marginTop: '0.15rem' }}>{t.taxReservedLine.replace('{{amount}}', taxWithheld.toFixed(2))}</div>}
                             </div>
                             {actionBtn}
                           </div>
