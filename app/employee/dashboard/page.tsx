@@ -455,10 +455,10 @@ export default function EmployeeDashboard() {
 
   const tabs = [
     { id: 'clock' as const, icon: '⏰', label: `${t.clockIn.split(' ')[0]}/${t.clockOut.split(' ')[0]}` },
-    { id: 'schedule' as const, icon: '📅', label: 'Schedule' },
+    { id: 'schedule' as const, icon: '📅', label: t.schedule },
     { id: 'history' as const, icon: '📋', label: t.history },
     { id: 'earnings' as const, icon: '💵', label: t.earnings },
-    { id: 'timeoff' as const, icon: '🏖️', label: 'Time Off' },
+    { id: 'timeoff' as const, icon: '🏖️', label: t.timeOff },
   ]
 
   return (
@@ -564,7 +564,7 @@ export default function EmployeeDashboard() {
             >
               <span>{tab.icon}</span>
               {!isMobile && <span>{tab.label}</span>}
-              {isMobile && <span style={{ fontSize: '0.7rem' }}>{tab.label.split(' ')[0]}</span>}
+              {isMobile && <span style={{ fontSize: '0.65rem', lineHeight: 1.1, textAlign: 'center' }}>{tab.label}</span>}
             </button>
           ))}
         </div>

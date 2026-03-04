@@ -502,8 +502,8 @@ export default function OwnerDashboard() {
     { id: 'employees', icon: '⬡', label: t.employees },
     { id: 'timeentries', icon: '◷', label: t.timeEntries },
     { id: 'payroll', icon: '◈', label: t.payroll },
-    { id: 'schedule', icon: '📅', label: 'Schedule' },
-    { id: 'timeoff', icon: '🏖️', label: 'Time Off' },
+    { id: 'schedule', icon: '📅', label: t.schedule },
+    { id: 'timeoff', icon: '🏖️', label: t.timeOff },
     { id: 'billing', icon: '💳', label: t.billing },
   ]
 
