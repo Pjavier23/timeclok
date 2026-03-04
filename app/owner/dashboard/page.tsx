@@ -6,7 +6,7 @@ import { createClient } from '../../lib/supabase'
 import { useLang } from '../../contexts/LanguageContext'
 import { LanguageToggle } from '../../components/LanguageToggle'
 
-type Tab = 'overview' | 'employees' | 'payroll' | 'timeentries' | 'schedule' | 'billing' | 'settings'
+type Tab = 'overview' | 'employees' | 'payroll' | 'timeentries' | 'schedule' | 'timeoff' | 'billing' | 'settings'
 
 export default function OwnerDashboard() {
   const router = useRouter()
@@ -50,6 +50,13 @@ export default function OwnerDashboard() {
   const [schedules, setSchedules] = useState<any[]>([])
   const [scheduleLoading, setScheduleLoading] = useState(false)
   const [showShiftForm, setShowShiftForm] = useState(false)
+
+  // Time off
+  const [timeOffRequests, setTimeOffRequests] = useState<any[]>([])
+  const [timeOffLoaded, setTimeOffLoaded] = useState(false)
+  const [timeOffActioning, setTimeOffActioning] = useState<string | null>(null)
+  const [denyingId, setDenyingId] = useState<string | null>(null)
+  const [denyReason, setDenyReason] = useState('')
   const [shiftForm, setShiftForm] = useState({ employee_id: '', shift_date: '', start_time: '09:00', end_time: '17:00', location: '', notes: '' })
   const [shiftSaving, setShiftSaving] = useState(false)
   const [scheduleMigrationNeeded, setScheduleMigrationNeeded] = useState(false)
@@ -112,6 +119,40 @@ export default function OwnerDashboard() {
   useEffect(() => {
     if (activeTab === 'schedule') fetchSchedules()
   }, [activeTab, fetchSchedules])
+
+  useEffect(() => {
+    if (activeTab !== 'timeoff' || timeOffLoaded) return
+    const load = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/owner/time-off', { headers: { Authorization: `Bearer ${session.access_token}` } })
+      const json = await res.json()
+      setTimeOffRequests(json.requests || [])
+      setTimeOffLoaded(true)
+    }
+    load()
+  }, [activeTab, timeOffLoaded])
+
+  const handleTimeOffAction = async (id: string, action: 'approve' | 'deny', denial_reason?: string) => {
+    setTimeOffActioning(id)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/owner/time-off', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ id, action, denial_reason }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        setTimeOffRequests(prev => prev.map(r => r.id === id ? { ...r, ...json.request } : r))
+        setDenyingId(null)
+        setDenyReason('')
+      }
+    } finally {
+      setTimeOffActioning(null)
+    }
+  }
 
   const handleCreateShift = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -462,8 +503,11 @@ export default function OwnerDashboard() {
     { id: 'timeentries', icon: '◷', label: t.timeEntries },
     { id: 'payroll', icon: '◈', label: t.payroll },
     { id: 'schedule', icon: '📅', label: 'Schedule' },
+    { id: 'timeoff', icon: '🏖️', label: 'Time Off' },
     { id: 'billing', icon: '💳', label: t.billing },
   ]
+
+  const pendingTimeOffCount = timeOffRequests.filter(r => r.status === 'pending').length
 
   const pendingPayrollCount = (payroll || []).filter((p: any) => p.status === 'pending').length
 
@@ -542,6 +586,11 @@ export default function OwnerDashboard() {
                 {item.id === 'payroll' && pendingPayrollCount > 0 && (
                   <span style={{ marginLeft: 'auto', background: '#f59e0b', color: '#000', fontSize: '0.65rem', fontWeight: '800', padding: '0.15rem 0.45rem', borderRadius: '100px' }}>
                     {pendingPayrollCount}
+                  </span>
+                )}
+                {item.id === 'timeoff' && pendingTimeOffCount > 0 && (
+                  <span style={{ marginLeft: 'auto', background: '#f59e0b', color: '#000', fontSize: '0.65rem', fontWeight: '800', padding: '0.15rem 0.45rem', borderRadius: '100px' }}>
+                    {pendingTimeOffCount}
                   </span>
                 )}
               </button>
@@ -1289,6 +1338,140 @@ CREATE INDEX IF NOT EXISTS idx_schedules_company ON schedules(company_id);`}
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ── TIME OFF TAB ── */}
+          {activeTab === 'timeoff' && (
+            <div>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>🏖️ Time Off</h1>
+                <p style={{ margin: 0, color: '#555', fontSize: '0.875rem' }}>Review and respond to employee time off requests</p>
+              </div>
+
+              {/* Pending requests */}
+              {(() => {
+                const pending = timeOffRequests.filter(r => r.status === 'pending')
+                const rest = timeOffRequests.filter(r => r.status !== 'pending')
+                const typeEmoji: Record<string, string> = { vacation: '🌴', sick: '🤒', personal: '👤', other: '📌' }
+
+                return (
+                  <>
+                    {/* Pending section */}
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#f59e0b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.75rem' }}>
+                        Pending ({pending.length})
+                      </div>
+                      {pending.length === 0 ? (
+                        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1.5rem', textAlign: 'center', color: '#444', fontSize: '0.875rem' }}>
+                          No pending requests 🎉
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          {pending.map((req: any) => {
+                            const empName = req.employees?.users?.full_name || req.employees?.users?.email || 'Employee'
+                            return (
+                              <div key={req.id} style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '14px', padding: '1.25rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.875rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                  <div>
+                                    <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>{empName}</div>
+                                    <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.15rem' }}>
+                                      {typeEmoji[req.type] || '📌'} {req.type.charAt(0).toUpperCase() + req.type.slice(1)} · {req.start_date === req.end_date ? req.start_date : `${req.start_date} → ${req.end_date}`}
+                                    </div>
+                                    {req.notes && <div style={{ fontSize: '0.78rem', color: '#666', marginTop: '0.25rem' }}>{req.notes}</div>}
+                                  </div>
+                                  <span style={{ padding: '0.25rem 0.75rem', borderRadius: '100px', fontSize: '0.72rem', fontWeight: '700', color: '#f59e0b', background: 'rgba(245,158,11,0.1)', flexShrink: 0 }}>🟡 Pending</span>
+                                </div>
+
+                                {/* Deny reason input */}
+                                {denyingId === req.id && (
+                                  <div style={{ marginBottom: '0.75rem' }}>
+                                    <input
+                                      type="text"
+                                      value={denyReason}
+                                      onChange={e => setDenyReason(e.target.value)}
+                                      placeholder="Reason for denial (optional)"
+                                      autoFocus
+                                      style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '0.625rem 0.875rem', color: '#fff', fontSize: '0.85rem', outline: 'none' } as React.CSSProperties}
+                                    />
+                                  </div>
+                                )}
+
+                                <div style={{ display: 'flex', gap: '0.625rem' }}>
+                                  <button
+                                    onClick={() => handleTimeOffAction(req.id, 'approve')}
+                                    disabled={timeOffActioning === req.id}
+                                    style={{ flex: 1, padding: '0.625rem', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem', opacity: timeOffActioning === req.id ? 0.5 : 1 } as React.CSSProperties}
+                                  >
+                                    ✅ Approve
+                                  </button>
+                                  {denyingId === req.id ? (
+                                    <>
+                                      <button
+                                        onClick={() => handleTimeOffAction(req.id, 'deny', denyReason)}
+                                        disabled={timeOffActioning === req.id}
+                                        style={{ flex: 1, padding: '0.625rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem', opacity: timeOffActioning === req.id ? 0.5 : 1 } as React.CSSProperties}
+                                      >
+                                        Confirm Deny
+                                      </button>
+                                      <button
+                                        onClick={() => { setDenyingId(null); setDenyReason('') }}
+                                        style={{ padding: '0.625rem 0.875rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#666', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' } as React.CSSProperties}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button
+                                      onClick={() => setDenyingId(req.id)}
+                                      style={{ flex: 1, padding: '0.625rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem' } as React.CSSProperties}
+                                    >
+                                      ❌ Deny
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* History section */}
+                    {rest.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.72rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.75rem' }}>History</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          {rest.map((req: any) => {
+                            const empName = req.employees?.users?.full_name || req.employees?.users?.email || 'Employee'
+                            const statusColors: Record<string, { color: string; bg: string }> = {
+                              approved: { color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
+                              denied: { color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+                            }
+                            const sc = statusColors[req.status] || { color: '#888', bg: 'rgba(255,255,255,0.05)' }
+                            return (
+                              <div key={req.id} style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '1rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <div>
+                                    <div style={{ fontWeight: '700', fontSize: '0.875rem' }}>{empName}</div>
+                                    <div style={{ fontSize: '0.78rem', color: '#666', marginTop: '0.15rem' }}>
+                                      {typeEmoji[req.type] || '📌'} {req.type.charAt(0).toUpperCase() + req.type.slice(1)} · {req.start_date === req.end_date ? req.start_date : `${req.start_date} → ${req.end_date}`}
+                                    </div>
+                                    {req.denial_reason && <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '0.2rem' }}>Reason: {req.denial_reason}</div>}
+                                  </div>
+                                  <span style={{ padding: '0.25rem 0.75rem', borderRadius: '100px', fontSize: '0.72rem', fontWeight: '700', color: sc.color, background: sc.bg, flexShrink: 0 }}>
+                                    {req.status === 'approved' ? '✅ Approved' : '❌ Denied'}
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           )}
 

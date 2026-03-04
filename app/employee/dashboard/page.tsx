@@ -21,7 +21,7 @@ export default function EmployeeDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [warning, setWarning] = useState('')
-  const [activeTab, setActiveTab] = useState<'clock' | 'history' | 'earnings' | 'schedule'>('clock')
+  const [activeTab, setActiveTab] = useState<'clock' | 'history' | 'earnings' | 'schedule' | 'timeoff'>('clock')
   const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set())
   const [payrollStatusFilter, setPayrollStatusFilter] = useState<string>('all')
   const [payrollDateFilter, setPayrollDateFilter] = useState<string>('')
@@ -55,6 +55,17 @@ export default function EmployeeDashboard() {
   const [breakStartedAt, setBreakStartedAt] = useState<number | null>(null)
   const [breakAccumulated, setBreakAccumulated] = useState(0) // total break seconds so far
   const [breakTick, setBreakTick] = useState(0) // triggers re-render during break
+
+  // Time off
+  const [timeOffRequests, setTimeOffRequests] = useState<any[]>([])
+  const [timeOffLoaded, setTimeOffLoaded] = useState(false)
+  const [timeOffType, setTimeOffType] = useState('vacation')
+  const [timeOffStart, setTimeOffStart] = useState('')
+  const [timeOffEnd, setTimeOffEnd] = useState('')
+  const [timeOffNotes, setTimeOffNotes] = useState('')
+  const [timeOffSubmitting, setTimeOffSubmitting] = useState(false)
+  const [timeOffError, setTimeOffError] = useState('')
+  const [timeOffSuccess, setTimeOffSuccess] = useState(false)
 
   const getSession = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -136,6 +147,49 @@ export default function EmployeeDashboard() {
     }
     load()
   }, [activeTab, scheduleLoaded])
+
+  // Load time off requests when tab opens
+  useEffect(() => {
+    if (activeTab !== 'timeoff' || timeOffLoaded) return
+    const load = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/employee/time-off', { headers: { Authorization: `Bearer ${session.access_token}` } })
+      const json = await res.json()
+      setTimeOffRequests(json.requests || [])
+      setTimeOffLoaded(true)
+    }
+    load()
+  }, [activeTab, timeOffLoaded])
+
+  const handleTimeOffSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setTimeOffSubmitting(true)
+    setTimeOffError('')
+    setTimeOffSuccess(false)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Not logged in')
+      const res = await fetch('/api/employee/time-off', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: timeOffType, start_date: timeOffStart, end_date: timeOffEnd, notes: timeOffNotes }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to submit')
+      setTimeOffRequests(prev => [json.request, ...prev])
+      setTimeOffType('vacation')
+      setTimeOffStart('')
+      setTimeOffEnd('')
+      setTimeOffNotes('')
+      setTimeOffSuccess(true)
+      setTimeout(() => setTimeOffSuccess(false), 4000)
+    } catch (err: any) {
+      setTimeOffError(err.message)
+    } finally {
+      setTimeOffSubmitting(false)
+    }
+  }
 
   // Restore break state from localStorage when active entry loads
   useEffect(() => {
@@ -404,6 +458,7 @@ export default function EmployeeDashboard() {
     { id: 'schedule' as const, icon: '📅', label: 'Schedule' },
     { id: 'history' as const, icon: '📋', label: t.history },
     { id: 'earnings' as const, icon: '💵', label: t.earnings },
+    { id: 'timeoff' as const, icon: '🏖️', label: 'Time Off' },
   ]
 
   return (
@@ -1180,6 +1235,138 @@ export default function EmployeeDashboard() {
                           </div>
                         </div>
                         {taxWithheld > 0 && <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: '#f59e0b' }}>🐷 ${taxWithheld.toFixed(2)} tax reserved</div>}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── TIME OFF TAB ── */}
+        {activeTab === 'timeoff' && (
+          <div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: '800', margin: '0 0 0.25rem', letterSpacing: '-0.02em' }}>🏖️ Time Off Requests</h2>
+              <p style={{ margin: 0, color: '#555', fontSize: '0.8rem' }}>Submit a request — your employer will approve or deny it</p>
+            </div>
+
+            {/* Request Form */}
+            <div style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '1.25rem', marginBottom: '1.5rem' }}>
+              <div style={{ fontSize: '0.72rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '1rem' }}>New Request</div>
+              <form onSubmit={handleTimeOffSubmit}>
+                {/* Type */}
+                <div style={{ marginBottom: '0.875rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '600', marginBottom: '0.4rem' }}>Type</label>
+                  <select
+                    value={timeOffType}
+                    onChange={e => setTimeOffType(e.target.value)}
+                    style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.9rem', outline: 'none' } as React.CSSProperties}
+                  >
+                    <option value="vacation" style={{ background: '#1a1a1a' }}>🌴 Vacation</option>
+                    <option value="sick" style={{ background: '#1a1a1a' }}>🤒 Sick Day</option>
+                    <option value="personal" style={{ background: '#1a1a1a' }}>👤 Personal</option>
+                    <option value="other" style={{ background: '#1a1a1a' }}>📌 Other</option>
+                  </select>
+                </div>
+
+                {/* Dates */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.875rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '600', marginBottom: '0.4rem' }}>Start Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={timeOffStart}
+                      onChange={e => setTimeOffStart(e.target.value)}
+                      style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.875rem', outline: 'none', colorScheme: 'dark' } as React.CSSProperties}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '600', marginBottom: '0.4rem' }}>End Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={timeOffEnd}
+                      min={timeOffStart}
+                      onChange={e => setTimeOffEnd(e.target.value)}
+                      style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.875rem', outline: 'none', colorScheme: 'dark' } as React.CSSProperties}
+                    />
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.78rem', color: '#666', fontWeight: '600', marginBottom: '0.4rem' }}>Notes <span style={{ color: '#444', fontWeight: '400' }}>(optional)</span></label>
+                  <textarea
+                    value={timeOffNotes}
+                    onChange={e => setTimeOffNotes(e.target.value)}
+                    placeholder="Any context for your employer..."
+                    rows={2}
+                    style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.875rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit' } as React.CSSProperties}
+                  />
+                </div>
+
+                {timeOffError && (
+                  <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '0.8rem', marginBottom: '0.875rem' }}>
+                    ⚠️ {timeOffError}
+                  </div>
+                )}
+                {timeOffSuccess && (
+                  <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', color: '#22c55e', padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '0.8rem', marginBottom: '0.875rem' }}>
+                    ✅ Request submitted! Your employer will review it.
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={timeOffSubmitting}
+                  style={{ width: '100%', padding: '0.875rem', background: '#00d9ff', color: '#000', border: 'none', borderRadius: '10px', fontWeight: '800', cursor: timeOffSubmitting ? 'not-allowed' : 'pointer', fontSize: '0.9rem', opacity: timeOffSubmitting ? 0.6 : 1 } as React.CSSProperties}
+                >
+                  {timeOffSubmitting ? 'Submitting...' : 'Submit Request'}
+                </button>
+              </form>
+            </div>
+
+            {/* Request History */}
+            <div>
+              <div style={{ fontSize: '0.72rem', color: '#555', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.875rem' }}>Your Requests</div>
+              {!timeOffLoaded ? (
+                <div style={{ color: '#444', fontSize: '0.85rem', textAlign: 'center', padding: '2rem' }}>Loading...</div>
+              ) : timeOffRequests.length === 0 ? (
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '2rem', textAlign: 'center', color: '#444', fontSize: '0.875rem' }}>
+                  No requests yet
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                  {timeOffRequests.map((req: any) => {
+                    const statusColors: Record<string, { color: string; bg: string }> = {
+                      pending: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+                      approved: { color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
+                      denied: { color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+                    }
+                    const sc = statusColors[req.status] || statusColors.pending
+                    const typeEmoji: Record<string, string> = { vacation: '🌴', sick: '🤒', personal: '👤', other: '📌' }
+                    return (
+                      <div key={req.id} style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: req.denial_reason ? '0.5rem' : '0' }}>
+                          <div>
+                            <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>{typeEmoji[req.type] || '📌'} {req.type.charAt(0).toUpperCase() + req.type.slice(1)}</span>
+                            <div style={{ fontSize: '0.78rem', color: '#666', marginTop: '0.2rem' }}>
+                              {req.start_date === req.end_date ? req.start_date : `${req.start_date} → ${req.end_date}`}
+                            </div>
+                            {req.notes && <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>{req.notes}</div>}
+                          </div>
+                          <span style={{ padding: '0.25rem 0.75rem', borderRadius: '100px', fontSize: '0.72rem', fontWeight: '700', color: sc.color, background: sc.bg, flexShrink: 0 }}>
+                            {req.status === 'pending' ? '🟡 Pending' : req.status === 'approved' ? '✅ Approved' : '❌ Denied'}
+                          </span>
+                        </div>
+                        {req.denial_reason && (
+                          <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#ef4444', background: 'rgba(239,68,68,0.06)', padding: '0.5rem 0.75rem', borderRadius: '7px' }}>
+                            Reason: {req.denial_reason}
+                          </div>
+                        )}
                       </div>
                     )
                   })}
