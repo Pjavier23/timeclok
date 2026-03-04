@@ -10,6 +10,7 @@ function SignUpForm() {
   
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -30,6 +31,9 @@ function SignUpForm() {
       }
       if (password.length < 6) {
         throw new Error('Password must be at least 6 characters')
+      }
+      if (password !== confirmPassword) {
+        throw new Error('Passwords do not match')
       }
 
       const response = await fetch('/api/auth/signup', {
@@ -147,7 +151,10 @@ function SignUpForm() {
         maxWidth: '500px',
         width: '100%'
       }}>
-        <h1 style={{marginBottom: '2rem', textAlign: 'center'}}>⏱️ TimeClok Sign Up</h1>
+        <div style={{textAlign: 'center', marginBottom: '2rem'}}>
+          <h1 style={{marginBottom: '0.5rem'}}>⏱️ TimeClok</h1>
+          <p style={{color: '#999', fontSize: '0.875rem', margin: 0}}>Create your business account</p>
+        </div>
 
         <form onSubmit={handleSignUp}>
           <div style={{marginBottom: '1rem'}}>
@@ -191,13 +198,16 @@ function SignUpForm() {
             />
           </div>
 
-          <div style={{marginBottom: '1.5rem'}}>
-            <label style={{display: 'block', marginBottom: '0.5rem'}}>Password</label>
+          <div style={{marginBottom: '1rem'}}>
+            <label style={{display: 'block', marginBottom: '0.5rem'}}>
+              Create a Password
+            </label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="Min. 6 characters"
               style={{
                 width: '100%',
                 padding: '0.75rem',
@@ -209,6 +219,44 @@ function SignUpForm() {
                 fontSize: '1rem'
               }}
             />
+            <p style={{margin: '0.35rem 0 0', fontSize: '0.75rem', color: '#666'}}>
+              You'll use this to log in each time
+            </p>
+          </div>
+
+          <div style={{marginBottom: '1.5rem'}}>
+            <label style={{display: 'block', marginBottom: '0.5rem'}}>
+              Confirm Password
+            </label>
+            <input
+              type="password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter your password"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: 'rgba(255,255,255,0.1)',
+                border: confirmPassword && confirmPassword !== password
+                  ? '1px solid rgba(255,0,110,0.6)'
+                  : '1px solid rgba(255,255,255,0.2)',
+                color: '#fff',
+                borderRadius: '0.5rem',
+                boxSizing: 'border-box',
+                fontSize: '1rem'
+              }}
+            />
+            {confirmPassword && confirmPassword !== password && (
+              <p style={{margin: '0.35rem 0 0', fontSize: '0.75rem', color: '#ff006e'}}>
+                Passwords don't match
+              </p>
+            )}
+            {confirmPassword && confirmPassword === password && (
+              <p style={{margin: '0.35rem 0 0', fontSize: '0.75rem', color: '#00d9ff'}}>
+                ✓ Passwords match
+              </p>
+            )}
           </div>
 
           {error && (
