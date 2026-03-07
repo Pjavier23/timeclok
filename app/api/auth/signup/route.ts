@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     // 5. Notify Pedro of new signup (fire-and-forget)
     const resendKey = process.env.RESEND_API_KEY
     const notifyEmail = process.env.NOTIFY_EMAIL || 'pedro@jastheshop.com'
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://timeclok.vercel.app'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://timeclok.com'
 
     if (resendKey) {
       fetch('https://api.resend.com/emails', {

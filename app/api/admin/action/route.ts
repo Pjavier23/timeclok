@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabase.auth.admin.generateLink({
       type: 'recovery',
       email,
-      options: { redirectTo: 'https://timeclok.vercel.app/auth/reset-password' },
+      options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://timeclok.com'}/auth/reset-password` },
     })
 
     if (error) return Response.json({ error: error.message }, { status: 500 })

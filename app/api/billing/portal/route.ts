@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       return Response.json({ error: 'No Stripe customer found. You need to subscribe first.' }, { status: 404 })
     }
 
-    const origin = request.headers.get('origin') || 'https://timeclok.vercel.app'
+    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'https://timeclok.com'
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: company.stripe_customer_id,

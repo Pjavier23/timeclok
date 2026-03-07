@@ -61,7 +61,7 @@ export async function POST(request: Request) {
         .eq('id', company.id)
     }
 
-    const origin = request.headers.get('origin') || 'https://timeclok.vercel.app'
+    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'https://timeclok.com'
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,

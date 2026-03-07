@@ -146,7 +146,7 @@ export async function POST(request: Request) {
       // Auto-seed sample data
       try {
         console.log('Seeding sample data for setup account...')
-        const seedRes = await fetch(`${request.headers.get('origin') || 'https://timeclok.vercel.app'}/api/seed-company`, {
+        const seedRes = await fetch(`${request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'https://timeclok.com'}/api/seed-company`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -171,10 +171,10 @@ export async function POST(request: Request) {
           companyName,
           ownerName: ownerName || companyName,
           userId,
-          loginUrl: 'https://timeclok.vercel.app/auth/login',
+          loginUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://timeclok.com'}/auth/login`,
         },
         instructions: [
-          `1. Go to https://timeclok.vercel.app/auth/login`,
+          `1. Go to ${process.env.NEXT_PUBLIC_APP_URL || 'https://timeclok.com'}/auth/login`,
           `2. Enter email: ${email}`,
           `3. Enter password: ${password}`,
           '4. Click Log In',

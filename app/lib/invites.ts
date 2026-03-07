@@ -27,7 +27,7 @@ export async function createEmployeeInvite(
 ): Promise<{ token: string; inviteUrl: string; error?: string }> {
   try {
     const token = await generateInviteToken(companyId, employeeEmail)
-    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://timeclok.vercel.app'}/join?token=${token}`
+    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://timeclok.com'}/join?token=${token}`
     
     return { token, inviteUrl }
   } catch (error: any) {

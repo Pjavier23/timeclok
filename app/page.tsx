@@ -171,7 +171,7 @@ export default function Home() {
               <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#22c55e', opacity: 0.7 }} />
             </div>
             <div style={{ flex: 1, background: 'rgba(255,255,255,0.05)', borderRadius: '6px', padding: '0.25rem 0.75rem', fontSize: '0.75rem', color: '#555', textAlign: 'center', maxWidth: '300px', margin: '0 auto' }}>
-              timeclok.vercel.app/owner/dashboard
+              timeclok.com/owner/dashboard
             </div>
           </div>
           {/* Mock content */}

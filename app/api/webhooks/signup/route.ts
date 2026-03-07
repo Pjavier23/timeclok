@@ -39,7 +39,8 @@ export async function POST(request: Request) {
     const telegramChatId = process.env.TELEGRAM_CHAT_ID
 
     if (telegramToken && telegramChatId) {
-      const msg = `🔔 *New TimeClok Signup!*\n\n📧 ${email}\n🕐 ${formattedTime} ET\n🆔 \`${userId}\`\n\n👉 [View Admin](https://timeclok.vercel.app/admin)`
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://timeclok.com'
+      const msg = `🔔 *New TimeClok Signup!*\n\n📧 ${email}\n🕐 ${formattedTime} ET\n🆔 \`${userId}\`\n\n👉 [View Admin](${appUrl}/admin)`
       await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
                 <div style="font-size:1.1rem;font-weight:700;">${email}</div>
                 <div style="color:#666;font-size:0.875rem;margin-top:4px;">${formattedTime} ET</div>
               </div>
-              <a href="https://timeclok.vercel.app/admin" style="display:inline-block;background:#00d9ff;color:#000;padding:12px 24px;border-radius:8px;font-weight:700;text-decoration:none;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://timeclok.com'}/admin" style="display:inline-block;background:#00d9ff;color:#000;padding:12px 24px;border-radius:8px;font-weight:700;text-decoration:none;">
                 View Admin Dashboard →
               </a>
             </div>

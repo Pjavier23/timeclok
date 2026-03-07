@@ -39,9 +39,10 @@ export async function POST(request: Request) {
       .eq('id', data.user.id)
       .single()
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://timeclok.com'
     const dashboardUrl = userProfile?.user_type === 'employee' 
-      ? 'https://timeclok.vercel.app/employee/dashboard'
-      : 'https://timeclok.vercel.app/owner/dashboard'
+      ? `${appUrl}/employee/dashboard`
+      : `${appUrl}/owner/dashboard`
 
     return Response.json({
       user: data.user,
