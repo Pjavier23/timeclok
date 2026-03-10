@@ -223,7 +223,7 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'TimeClok <onboarding@resend.dev>',
+        from: 'TimeClok <noreply@timeclok.com>',
         to: [email],
         subject: `You're invited to join ${companyName} on TimeClok ⏱`,
         html: emailHtml,
