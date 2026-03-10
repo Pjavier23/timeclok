@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { LanguageToggle } from './components/LanguageToggle'
 
 export default function Home() {
   const router = useRouter()
@@ -68,6 +69,7 @@ export default function Home() {
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <a href="#features" style={{ color: '#888', fontSize: '0.875rem', textDecoration: 'none', fontWeight: '500', padding: '0.5rem 0.75rem', borderRadius: '8px', display: 'none' }}>Features</a>
           <a href="#pricing" style={{ color: '#888', fontSize: '0.875rem', textDecoration: 'none', fontWeight: '500', padding: '0.5rem 0.75rem', borderRadius: '8px' }}>Pricing</a>
+          <LanguageToggle />
           <button
             onClick={() => router.push('/auth/login')}
             style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', padding: '0.5rem 1.125rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '500', transition: 'all 0.2s' }}
