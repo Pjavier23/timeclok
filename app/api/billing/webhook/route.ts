@@ -66,12 +66,40 @@ export async function POST(request: Request) {
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription
         const customerId = subscription.customer as string
-        const isActive = subscription.status === 'active'
+
+        // Map Stripe subscription status to our internal status
+        const statusMap: Record<string, string> = {
+          active: 'active',
+          trialing: 'active',
+          past_due: 'past_due',
+          canceled: 'cancelled',
+          cancelled: 'cancelled',
+          unpaid: 'past_due',
+          incomplete: 'past_due',
+          incomplete_expired: 'cancelled',
+          paused: 'cancelled',
+        }
+        const newStatus = statusMap[subscription.status] || 'cancelled'
 
         await supabase
           .from('companies')
-          .update({ subscription_status: isActive ? 'active' : 'cancelled' })
+          .update({ subscription_status: newStatus })
           .eq('stripe_customer_id', customerId)
+
+        console.log(`🔄 Subscription updated for customer ${customerId}: ${subscription.status} → ${newStatus}`)
+        break
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice
+        const customerId = invoice.customer as string
+
+        await supabase
+          .from('companies')
+          .update({ subscription_status: 'past_due' })
+          .eq('stripe_customer_id', customerId)
+
+        console.log(`💳 Payment failed for customer ${customerId} — marked past_due`)
         break
       }
 

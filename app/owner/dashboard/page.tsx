@@ -1,17 +1,24 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
 import { useLang } from '../../contexts/LanguageContext'
 import { LanguageToggle } from '../../components/LanguageToggle'
+import { computeBillingStatus, BillingInfo } from '../../lib/billing'
+import { Suspense } from 'react'
 
 type Tab = 'overview' | 'employees' | 'payroll' | 'timeentries' | 'schedule' | 'timeoff' | 'billing' | 'settings'
 
-export default function OwnerDashboard() {
+function OwnerDashboardInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
   const { t } = useLang()
+
+  const [billing, setBilling] = useState<BillingInfo | null>(null)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [billingSuccess, setBillingSuccess] = useState(false)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -99,11 +106,36 @@ export default function OwnerDashboard() {
     if (json.company) {
       setSettingsCompanyName(json.company.name || '')
       setSettingsPaySchedule(json.company.pay_schedule || 'weekly')
+      // Compute billing status
+      const info = computeBillingStatus(json.company.subscription_status, json.company.trial_ends_at)
+      setBilling(info)
     }
     setLoading(false)
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Detect ?billing=success from Stripe redirect
+  useEffect(() => {
+    if (searchParams.get('billing') === 'success') {
+      setBillingSuccess(true)
+      setTimeout(() => fetchData(), 2500) // re-fetch after webhook fires
+      setTimeout(() => setBillingSuccess(false), 8000)
+    }
+  }, [searchParams])
+
+  const handleStartSubscription = async () => {
+    setCheckoutLoading(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setCheckoutLoading(false); return }
+    const res = await fetch('/api/billing/create-checkout', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+    const data = await res.json()
+    setCheckoutLoading(false)
+    if (data.url) window.location.href = data.url
+  }
 
   const fetchSchedules = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -398,6 +430,12 @@ export default function OwnerDashboard() {
 
   const activeSessions = (timeEntries || []).filter((e: any) => !e.clock_out)
 
+  // Billing helpers
+  const isTrialExpired = billing?.status === 'trial_expired' || billing?.status === 'cancelled' || billing?.status === 'past_due'
+  const isOnTrial = billing?.status === 'trial'
+  const trialDaysLeft = billing?.daysLeft ?? 0
+  const isUrgentTrial = isOnTrial && trialDaysLeft <= 3
+
   const statusBadge = (status: string) => {
     const map: Record<string, [string, string]> = {
       pending: ['#f59e0b', 'rgba(245,158,11,0.12)'],
@@ -513,6 +551,90 @@ export default function OwnerDashboard() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#0f0f0f', color: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', display: 'flex', flexDirection: 'column', overflowX: 'hidden' } as React.CSSProperties}>
+
+      {/* ── TRIAL EXPIRED OVERLAY ── */}
+      {isTrialExpired && !billingSuccess && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(8px)' } as React.CSSProperties}>
+          <div style={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '3rem 2.5rem', width: '100%', maxWidth: '480px', textAlign: 'center', boxShadow: '0 40px 80px rgba(0,0,0,0.8)' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1.25rem' }}>🔒</div>
+            <h2 style={{ fontSize: '1.75rem', fontWeight: '900', margin: '0 0 0.75rem', letterSpacing: '-0.03em' }}>
+              {billing?.status === 'past_due' ? 'Payment Failed' : 'Your 30-day free trial has ended'}
+            </h2>
+            <p style={{ color: '#666', margin: '0 0 2rem', lineHeight: 1.6, fontSize: '0.95rem' }}>
+              {billing?.status === 'past_due'
+                ? 'We couldn\'t process your last payment. Update your billing to keep access.'
+                : 'Subscribe to TimeClok Pro to continue using payroll, GPS tracking, and employee management.'}
+            </p>
+
+            {/* Plan highlight */}
+            <div style={{ background: 'rgba(0,217,255,0.06)', border: '1px solid rgba(0,217,255,0.2)', borderRadius: '16px', padding: '1.5rem', marginBottom: '2rem', textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', marginBottom: '1rem', justifyContent: 'center' }}>
+                <span style={{ fontSize: '2.5rem', fontWeight: '900', color: '#fff' }}>$99</span>
+                <span style={{ color: '#555', fontSize: '1rem' }}>/month</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                {['📍 GPS tracking', '👥 Unlimited employees', '💰 Auto payroll', '📊 CSV export', '✉️ Email invites', '🔒 Secure & reliable'].map(f => (
+                  <div key={f} style={{ fontSize: '0.8rem', color: '#888', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <span style={{ color: '#22c55e', fontSize: '0.75rem' }}>✓</span> {f}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={handleStartSubscription}
+              disabled={checkoutLoading}
+              style={{ width: '100%', padding: '1.1rem 2rem', background: checkoutLoading ? 'rgba(0,217,255,0.4)' : '#00d9ff', color: '#000', border: 'none', borderRadius: '14px', fontWeight: '900', cursor: checkoutLoading ? 'not-allowed' : 'pointer', fontSize: '1.1rem', letterSpacing: '-0.01em', marginBottom: '1rem', transition: 'all 0.2s' }}
+            >
+              {checkoutLoading ? '⏳ Redirecting...' : 'Start Subscription →'}
+            </button>
+
+            <div style={{ fontSize: '0.8rem', color: '#444' }}>
+              Questions? Email <a href="mailto:pedro@jastheshop.com" style={{ color: '#00d9ff', textDecoration: 'none' }}>pedro@jastheshop.com</a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── BILLING SUCCESS BANNER ── */}
+      {billingSuccess && (
+        <div style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.15), rgba(0,217,255,0.1))', borderBottom: '1px solid rgba(34,197,94,0.3)', padding: '0.875rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', zIndex: 100, position: 'relative' }}>
+          <span style={{ fontSize: '1.25rem' }}>🎉</span>
+          <span style={{ fontWeight: '800', color: '#22c55e' }}>Welcome to TimeClok Pro!</span>
+          <span style={{ color: '#aaa', fontSize: '0.9rem' }}>You're all set — enjoy full access.</span>
+          <button onClick={() => setBillingSuccess(false)} style={{ background: 'transparent', border: 'none', color: '#555', cursor: 'pointer', marginLeft: '0.5rem' }}>✕</button>
+        </div>
+      )}
+
+      {/* ── TRIAL BANNER (not expired, just warning) ── */}
+      {isOnTrial && !billingSuccess && (
+        <div style={{
+          background: isUrgentTrial ? 'rgba(239,68,68,0.08)' : trialDaysLeft <= 7 ? 'rgba(245,158,11,0.07)' : 'rgba(34,197,94,0.07)',
+          borderBottom: `1px solid ${isUrgentTrial ? 'rgba(239,68,68,0.2)' : trialDaysLeft <= 7 ? 'rgba(245,158,11,0.2)' : 'rgba(34,197,94,0.15)'}`,
+          padding: '0.625rem 1rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '0.75rem',
+          fontSize: '0.85rem',
+          position: 'relative',
+          zIndex: 40,
+        }}>
+          <span>{isUrgentTrial ? '⚠️' : trialDaysLeft <= 7 ? '🕐' : '✅'}</span>
+          <span style={{ color: isUrgentTrial ? '#ef4444' : trialDaysLeft <= 7 ? '#f59e0b' : '#22c55e', fontWeight: '700' }}>
+            {isUrgentTrial
+              ? `Only ${trialDaysLeft} day${trialDaysLeft !== 1 ? 's' : ''} left on your trial`
+              : `Trial: ${trialDaysLeft} days left`}
+          </span>
+          <span style={{ color: '#555' }}>—</span>
+          <button
+            onClick={() => router.push('/owner/billing')}
+            style={{ background: 'transparent', border: 'none', color: '#00d9ff', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem', padding: 0 }}
+          >
+            Upgrade to keep access →
+          </button>
+        </div>
+      )}
 
       {/* ── TOP NAV ── */}
       <header style={{ background: '#0f0f0f', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0 1rem', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, boxSizing: 'border-box', width: '100%' } as React.CSSProperties}>
@@ -1763,5 +1885,20 @@ CREATE INDEX IF NOT EXISTS idx_schedules_company ON schedules(company_id);`}
         </div>
       )}
     </div>
+  )
+}
+
+export default function OwnerDashboard() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0f0f0f", color: "#fff", fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>⏱</div>
+          <div style={{ color: "#555", fontSize: "0.9rem", letterSpacing: "0.05em" }}>LOADING</div>
+        </div>
+      </div>
+    }>
+      <OwnerDashboardInner />
+    </Suspense>
   )
 }

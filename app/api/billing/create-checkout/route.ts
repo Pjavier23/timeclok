@@ -67,13 +67,14 @@ export async function POST(request: Request) {
       customer: customerId,
       payment_method_types: ['card'],
       mode: 'subscription',
+      allow_promotion_codes: true,
       line_items: [
         {
           price_data: {
             currency: 'usd',
             product_data: {
               name: 'TimeClok Pro',
-              description: 'Full access to payroll, time tracking, and employee management',
+              description: 'GPS time tracking, unlimited employees, auto payroll, CSV exports',
               images: [],
             },
             recurring: { interval: 'month' },
@@ -82,9 +83,14 @@ export async function POST(request: Request) {
           quantity: 1,
         },
       ],
+      subscription_data: {
+        // No extra trial — they already used their 30-day in-app trial
+        trial_period_days: 0,
+        metadata: { companyId: company.id },
+      },
       metadata: { companyId: company.id, userId: user.id },
-      success_url: `${origin}/owner/dashboard?billing=success`,
-      cancel_url: `${origin}/owner/dashboard?billing=cancelled`,
+      success_url: `${origin}/owner/billing?billing=success`,
+      cancel_url: `${origin}/owner/billing?billing=cancelled`,
     })
 
     return Response.json({ url: session.url })
